@@ -1,0 +1,41 @@
+# ==============================================================================
+# Solta Hotel Apartment · Operations
+# Apache / LiteSpeed .htaccess Configuration for cPanel
+# ==============================================================================
+
+Options -Indexes
+RewriteEngine On
+
+# 1. Security Headers
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# 2. Block sensitive files
+<FilesMatch "(\.env|\.git|\.sql|\.log|package\.json|package-lock\.json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# 3. API Route Rewrites
+RewriteRule ^api/login/?$ api/auth.php?action=login [QSA,L]
+RewriteRule ^api/logout/?$ api/auth.php?action=logout [QSA,L]
+RewriteRule ^api/me/?$ api/auth.php?action=me [QSA,L]
+RewriteRule ^api/data/?$ api/data.php [QSA,L]
+RewriteRule ^api/reports/?$ api/reports.php [QSA,L]
+RewriteRule ^api/health/?$ api/health.php [QSA,L]
+RewriteRule ^api/users/?$ api/users.php [QSA,L]
+RewriteRule ^api/reservations/?(.*)$ api/reservations.php?path=$1 [QSA,L]
+RewriteRule ^api/inventory/?(.*)$ api/inventory.php?path=$1 [QSA,L]
+RewriteRule ^api/tasks/?(.*)$ api/tasks.php?path=$1 [QSA,L]
+RewriteRule ^api/roles/?(.*)$ api/roles.php?path=$1 [QSA,L]
+RewriteRule ^api/payment-methods/?(.*)$ api/payment-methods.php?path=$1 [QSA,L]
+
+# 4. Frontend Single Page Application (SPA) Fallback
+# If file or directory does not exist, route to index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/api/ [NC]
+RewriteRule ^ index.html [L]
