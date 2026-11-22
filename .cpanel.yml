@@ -1,7 +1,8 @@
 ---
 deployment:
   tasks:
-    - export DEPLOYPATH=/home/$USER/public_html/
+    - export DEPLOYPATH=$(if [ -d "/home/$USER/property.soltahotelapartment.com" ]; then echo "/home/$USER/property.soltahotelapartment.com/"; else echo "/home/$USER/public_html/property.soltahotelapartment.com/"; fi)
+    - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp -R dist/* $DEPLOYPATH
     - /bin/cp -R api $DEPLOYPATH
     - /bin/cp schema.sql $DEPLOYPATH
