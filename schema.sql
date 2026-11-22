@@ -381,8 +381,7 @@ INSERT IGNORE INTO `permission_catalog` (`code`, `label`, `category`) VALUES
 -- SEED DATA: PROPERTIES
 -- ==============================================================================
 INSERT IGNORE INTO `properties` (`id`, `name`, `currency`, `timezone`) VALUES
-('db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Solta Hotel Apartment', 'ETB', 'Africa/Addis_Ababa'),
-('52b13c3e-b0d0-4742-b920-b11035779aa2', 'Flow Playground · Demo', 'ETB', 'Africa/Addis_Ababa');
+('db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Solta Hotel Apartment', 'ETB', 'Africa/Addis_Ababa');
 
 -- ==============================================================================
 -- SEED DATA: ROLES & ADMIN USER (password: admin123)
@@ -437,20 +436,13 @@ INSERT IGNORE INTO `users` (`id`, `property_id`, `name`, `email`, `password_hash
 
 -- Payment Methods
 INSERT IGNORE INTO `payment_methods` (`id`, `property_id`, `name`, `active`) VALUES
-('pm-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Telebirr', 1),
-('pm-2', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'PayPal', 1),
 ('pm-3', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Telebirr', 1),
-('pm-4', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Cash', 1);
+('pm-4', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Cash', 1),
+('pm-5', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'CBE Birr', 1),
+('pm-6', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Bank Transfer / CPO', 1);
 
--- Demo Units for Flow Playground & Solta
+-- Solta Hotel Initial Units
 INSERT IGNORE INTO `units` (`id`, `property_id`, `code`, `category`, `capacity`, `nightly_rate`, `readiness`, `occupied`) VALUES
-('u-101', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-101', 'One bedroom', 2, 3500.00, 'ready', 0),
-('u-102', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-102', 'One bedroom', 2, 3500.00, 'ready', 1),
-('u-103', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-103', 'One bedroom', 2, 3500.00, 'ready', 1),
-('u-104', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-104', 'Two bedroom', 4, 5500.00, 'dirty', 0),
-('u-105', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-105', 'Two bedroom', 4, 5500.00, 'ready', 0),
-('u-106', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'DEMO-106', 'Three bedroom', 6, 8000.00, 'ready', 0),
--- Real Solta Hotel Initial Units
 ('u-solta-101', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'SOLTA-101', 'One bedroom', 2, 3500.00, 'ready', 0),
 ('u-solta-102', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'SOLTA-102', 'One bedroom', 2, 3500.00, 'ready', 0),
 ('u-solta-201', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'SOLTA-201', 'Two bedroom', 4, 5500.00, 'ready', 0),
@@ -537,28 +529,6 @@ INSERT IGNORE INTO `inventory_stock` (`id`, `property_id`, `item_id`, `location_
 ('st-u201-14', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'it-s14', 'loc-unit-201', 2.00),
 ('st-u301-14', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'it-s14', 'loc-unit-301', 3.00);
 
--- Demo Reservations
-INSERT IGNORE INTO `reservations` (`id`, `property_id`, `unit_id`, `reference`, `guest_name`, `guest_phone`, `payer_name`, `source`, `rental_type`, `status`, `arrival`, `departure`, `checked_in_at`, `checked_out_at`) VALUES
-('res-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'u-106', 'DEMO-CHANNEL', 'Evan Cole (demo)', '+251 91 123 4567', 'Airbnb (demo)', 'Airbnb', 'Daily', 'confirmed', '2026-10-20 14:00:00', '2026-10-24 11:00:00', NULL, NULL),
-('res-2', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'u-101', 'DEMO-ARRIVAL', 'Maya Bennett (demo)', '+251 92 234 5678', 'Direct', 'Direct', 'Daily', 'confirmed', '2026-10-15 14:00:00', '2026-10-18 11:00:00', NULL, NULL),
-('res-3', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'u-103', 'DEMO-CHECKOUT', 'Leah Morgan (demo)', '+251 93 345 6789', 'Direct', 'Direct', 'Daily', 'checked_in', '2026-10-13 14:00:00', '2026-10-16 11:00:00', '2026-10-13 15:30:00', NULL);
-
--- Stay Accounts
-INSERT IGNORE INTO `stay_accounts` (`id`, `property_id`, `reservation_id`, `reference`, `guest_name`, `balance`, `deposit`) VALUES
-('acc-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'res-1', 'DEMO-CHANNEL', 'Evan Cole (demo)', 14000.00, 3000.00),
-('acc-2', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'res-2', 'DEMO-ARRIVAL', 'Maya Bennett (demo)', 10500.00, 2000.00),
-('acc-3', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'res-3', 'DEMO-CHECKOUT', 'Leah Morgan (demo)', 0.00, 2000.00);
-
--- Stay Account Entries
-INSERT IGNORE INTO `stay_account_entries` (`id`, `account_id`, `kind`, `amount`, `payment_method`, `description`, `actor`) VALUES
-('ent-1', 'acc-3', 'charge', 10500.00, NULL, 'Room charges for 3 nights', 'System'),
-('ent-2', 'acc-3', 'deposit', 2000.00, 'Telebirr', 'Security deposit received', 'Administrator'),
-('ent-3', 'acc-3', 'payment', 10500.00, 'Telebirr', 'Full stay payment received', 'Administrator');
-
--- Housekeeping Tasks
-INSERT IGNORE INTO `housekeeping_tasks` (`id`, `property_id`, `unit_id`, `status`, `reason`, `due_at`) VALUES
-('task-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'u-104', 'pending', 'Clean and replace one missing glass', '2026-10-15 17:00:00');
-
 -- Maintenance Records & Downtime History
 CREATE TABLE IF NOT EXISTS `maintenance_records` (
   `id` VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -586,7 +556,6 @@ INSERT IGNORE INTO `maintenance_records` (`id`, `property_id`, `unit_id`, `unit_
 
 -- Audit Log Initial Event
 INSERT IGNORE INTO `audit_log` (`id`, `property_id`, `action`, `actor`, `details`) VALUES
-('aud-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'system.initialized', 'System', '{"message":"Workspace initialized with demo dataset"}'),
 ('aud-2', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'system.initialized', 'System', '{"message":"Solta Hotel Apartment production workspace ready"}');
 
 -- Executive Approver Governance Settings
@@ -624,11 +593,5 @@ CREATE TABLE IF NOT EXISTS `system_notifications` (
   INDEX (`property_id`),
   INDEX (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO `system_notifications` (`id`, `property_id`, `type`, `title`, `message`, `entity_id`, `status`, `required_approval`, `created_at`) VALUES
-('notif-1', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'early_booking', 'Early Booking Approval Requested', 'Guest Dawit Haile requested early check-in (10:00 AM) for SOLTA-201.', 'res-solta-early-1', 'pending', 1, NOW() - INTERVAL 35 MINUTE),
-('notif-2', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'negative_stock', 'Negative Stock Deficit Warning', 'Housekeeping requested 15 sets of bath towels. Central Store balance will drop to -5 units.', 'mov-deficit-1', 'pending', 1, NOW() - INTERVAL 90 MINUTE),
-('notif-3', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'payment_request', 'Payment Registration Logged', 'Settlement payment of 28,000 ETB registered via Telebirr for Booking #SOLTA-8924.', 'acc-1', 'info', 0, NOW() - INTERVAL 180 MINUTE),
-('notif-4', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'expired_booking', 'Overdue / Expired Departure Alert', 'Booking #SOLTA-9042 for Apartment SOLTA-101 has exceeded scheduled departure time by 3.5 hours.', 'res-solta-overdue', 'info', 0, NOW() - INTERVAL 210 MINUTE);
 
 SET FOREIGN_KEY_CHECKS = 1;
