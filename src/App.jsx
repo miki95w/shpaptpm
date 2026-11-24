@@ -91,12 +91,13 @@ async function apiCall(endpoint, method = 'GET', body = null) {
   const res = await fetch(`${API_BASE}${endpoint}`, {
     method,
     headers,
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined
   });
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.message || 'Request failed');
+    throw new Error(data.message || `Request failed (${res.status})`);
   }
   return data;
 }
@@ -584,8 +585,16 @@ export default function App() {
     setLoggingIn(true);
     setLoginError('');
     try {
-      await apiCall('/login', 'POST', { email: loginEmail, password: loginPassword });
-      await checkAuth();
+      await apiCall('/login', 'POST', { email: loginEmail.trim(), password: loginPassword });
+      const auth = await apiCall('/me');
+      if (!auth || !auth.user) {
+        throw new Error('Signed in successfully, but session could not be established. Please check browser cookies or server sessions.');
+      }
+      setCurrentUser(auth.user);
+      setProperties(auth.properties || []);
+      if (auth.properties && auth.properties.length > 0) {
+        setPropertyId(auth.properties[0].id);
+      }
     } catch (err) {
       setLoginError(err.message || 'Login failed');
     } finally {
