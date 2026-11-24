@@ -24,6 +24,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -295,10 +296,12 @@ export default function App() {
   const [loggingIn, setLoggingIn] = useState(false);
 
   // App State
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState('Dashboard');
   const [data, setData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mgmtDropdownOpen, setMgmtDropdownOpen] = useState(false);
+  const mgmtDropdownRef = useRef(null);
   const [toast, setToast] = useState('');
 
   // Modals
@@ -570,130 +573,276 @@ export default function App() {
     );
   }
 
-  // Navigation Items
+  // Navigation Items (Management dropdown groups Management, Finance, Access & roles, Audit history)
   const navItems = [
-    { name: 'Overview', icon: LayoutDashboard, perm: 'dashboard.view' },
+    { name: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard.view' },
     { name: 'Apartments', icon: Building2, perm: 'apartments.view' },
     { name: 'Bookings', icon: Calendar, perm: 'reservations.view' },
-    { name: 'Finance', icon: DollarSign, perm: 'finance.view' },
     { name: 'Stay Accounts', icon: Wallet, perm: 'finance.view' },
     { name: 'Inventory', icon: Package, perm: 'inventory.view' },
     { name: 'Housekeeping', icon: Sparkles, perm: 'housekeeping.view' },
-    { name: 'Management', icon: Briefcase, perm: 'management.view' },
-    { name: 'Reports', icon: BarChart2, perm: 'reports.view' },
-    { name: 'Access & roles', icon: Shield, perm: 'roles.manage' },
-    { name: 'Audit history', icon: History, perm: 'audit.view' }
+    {
+      name: 'Management',
+      icon: Briefcase,
+      perm: 'management.view',
+      isDropdown: true,
+      children: [
+        { name: 'Management', label: 'Operations & HR', desc: 'Staff, expenses & utilities', icon: Briefcase, perm: 'management.view' },
+        { name: 'Finance', label: 'Finance', desc: 'Revenue, folios & methods', icon: DollarSign, perm: 'finance.view' },
+        { name: 'Access & roles', label: 'Access & roles', desc: 'Permissions & approvals', icon: Shield, perm: 'roles.manage' },
+        { name: 'Audit history', label: 'Audit history', desc: 'System activity log', icon: History, perm: 'audit.view' }
+      ]
+    },
+    { name: 'Reports', icon: BarChart2, perm: 'reports.view' }
   ];
 
+  const managementGroupTabs = ['Management', 'Finance', 'Access & roles', 'Audit history'];
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (mgmtDropdownRef.current && !mgmtDropdownRef.current.contains(e.target)) {
+        setMgmtDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setMgmtDropdownOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  async function handleQuickMarkReady(unit) {
+    try {
+      await apiCall('/units/mode', 'POST', { id: unit.id, mode: 'ready' });
+      await loadData();
+      showToast(`${unit.code} marked as Ready`);
+    } catch (err) {
+      showToast(err.message || 'Unable to update apartment status');
+    }
+  }
+
   return (
-    <div className="app-container">
-      {/* SIDEBAR NAVIGATION */}
-      <aside className={`sidebar ${mobileMenuOpen ? 'open' : ''}`}>
-        <div className="brand solta-brand">
-          <img src="/solta-logo.png" alt="Solta Hotel Apartment" />
+    <div className="app-container topnav-layout">
+      {/* TOP HORIZONTAL NAVIGATION BAR */}
+      <header className="topnav-bar">
+        <div className="topnav-left">
+          <button
+            className="icon mobile-toggle"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+
+          <div
+            className="topnav-logo"
+            onClick={() => setActiveTab('Dashboard')}
+            title="Go to Dashboard"
+            style={{ cursor: 'pointer' }}
+          >
+            <img src="/solta-logo.png" alt="Solta Hotel Apartment" />
+          </div>
         </div>
 
-        <div className="workspace-label">WORKSPACE</div>
-
-        <nav>
+        <nav className="topnav-pills" aria-label="Main navigation">
           {navItems.map(item => {
-            const Icon = item.icon;
+            if (item.isDropdown) {
+              const isGroupActive = managementGroupTabs.includes(activeTab);
+              const activeChild = item.children.find(c => c.name === activeTab);
+              return (
+                <div key={item.name} className="topnav-dropdown-wrap" ref={mgmtDropdownRef}>
+                  <button
+                    type="button"
+                    className={`topnav-pill ${isGroupActive ? 'active' : ''}`}
+                    onClick={() => setMgmtDropdownOpen(prev => !prev)}
+                    aria-expanded={mgmtDropdownOpen}
+                    aria-haspopup="menu"
+                  >
+                    <span>
+                      {isGroupActive && activeChild && activeChild.name !== 'Management'
+                        ? `Management · ${activeChild.label}`
+                        : item.name}
+                    </span>
+                    <ChevronDown
+                      size={14}
+                      style={{
+                        transition: 'transform 0.15s ease',
+                        transform: mgmtDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)'
+                      }}
+                    />
+                  </button>
+
+                  {mgmtDropdownOpen && (
+                    <div className="topnav-dropdown-menu" role="menu">
+                      <div className="topnav-dropdown-header">Management &amp; Governance</div>
+                      {item.children.map(child => {
+                        const ChildIcon = child.icon;
+                        const childActive = activeTab === child.name;
+                        return (
+                          <button
+                            key={child.name}
+                            type="button"
+                            role="menuitem"
+                            className={`topnav-dropdown-item ${childActive ? 'active' : ''}`}
+                            onClick={() => {
+                              setActiveTab(child.name);
+                              setMgmtDropdownOpen(false);
+                              setMobileMenuOpen(false);
+                            }}
+                          >
+                            <div className="topnav-dropdown-icon">
+                              <ChildIcon size={16} />
+                            </div>
+                            <div className="topnav-dropdown-text">
+                              <strong>{child.label}</strong>
+                              <span>{child.desc}</span>
+                            </div>
+                            {childActive && <Check size={14} className="topnav-dropdown-check" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
             const active = activeTab === item.name;
             return (
               <button
                 key={item.name}
-                className={`navitem ${active ? 'active' : ''}`}
+                type="button"
+                className={`topnav-pill ${active ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab(item.name);
+                  setMgmtDropdownOpen(false);
                   setMobileMenuOpen(false);
                 }}
               >
-                <Icon size={18} />
                 <span>{item.name}</span>
-                {active && <ChevronRight size={14} className="active-arrow" />}
               </button>
             );
           })}
         </nav>
 
-        <div className="sidebar-bottom">
-          <div className="status-dot"></div>
-          <div>
-            <strong>LOCAL WORKSPACE</strong>
-            <p>One place for every stay.</p>
+        <div className="topnav-right">
+          {properties.length > 1 && (
+            <select
+              value={propertyId}
+              onChange={e => setPropertyId(e.target.value)}
+            >
+              {properties.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            className="icon"
+            title="Refresh workspace data"
+            onClick={loadData}
+            disabled={refreshing}
+          >
+            <RefreshCw size={17} className={refreshing ? 'spinning' : ''} />
+          </button>
+
+          <button
+            className="icon notification-bell-btn"
+            title="Executive Approvals & Notifications"
+            onClick={() => setApproverModalOpen(true)}
+            style={{ position: 'relative' }}
+          >
+            <Bell size={18} />
+            {(notifications || []).filter(n => n.status === 'pending').length > 0 && (
+              <span className="bell-badge">
+                {(notifications || []).filter(n => n.status === 'pending').length}
+              </span>
+            )}
+          </button>
+
+          <div className="user-badge" title={currentUser.email}>
+            {currentUser.name ? currentUser.name[0].toUpperCase() : 'A'}
           </div>
+
+          <button
+            className="icon"
+            title="Sign out"
+            onClick={handleLogout}
+          >
+            <LogOut size={17} />
+          </button>
         </div>
-      </aside>
+      </header>
+
+      {/* MOBILE NAVIGATION DRAWER */}
+      {mobileMenuOpen && (
+        <div className="mobile-nav-backdrop" onClick={() => setMobileMenuOpen(false)}>
+          <aside className="mobile-nav-drawer" onClick={e => e.stopPropagation()}>
+            <div className="mobile-nav-drawer-head">
+              <div className="topnav-logo">
+                <img src="/solta-logo.png" alt="Solta Hotel Apartment" />
+              </div>
+              <button className="icon" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="mobile-nav-list">
+              {navItems.map(item => {
+                if (item.isDropdown) {
+                  return (
+                    <div key={item.name} className="mobile-nav-group">
+                      <div className="mobile-nav-group-label">Management</div>
+                      {item.children.map(child => {
+                        const ChildIcon = child.icon;
+                        const childActive = activeTab === child.name;
+                        return (
+                          <button
+                            key={child.name}
+                            type="button"
+                            className={`mobile-nav-item ${childActive ? 'active' : ''}`}
+                            onClick={() => {
+                              setActiveTab(child.name);
+                              setMobileMenuOpen(false);
+                            }}
+                          >
+                            <ChildIcon size={17} />
+                            <span>{child.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                const Icon = item.icon;
+                const active = activeTab === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    type="button"
+                    className={`mobile-nav-item ${active ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab(item.name);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <Icon size={17} />
+                    <span>{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA */}
-      <div className="main">
-        {/* TOPBAR */}
-        <header className="topbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              className="icon mobile-toggle"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              aria-label="Toggle navigation menu"
-            >
-              <Menu size={20} />
-            </button>
-            <div className="breadcrumb">
-              <span>Operations</span>
-              <ChevronRight size={14} />
-              <strong>{activeTab}</strong>
-            </div>
-          </div>
-
-          <div className="topright">
-            {properties.length > 1 && (
-              <select
-                value={propertyId}
-                onChange={e => setPropertyId(e.target.value)}
-              >
-                {properties.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <button
-              className="icon"
-              title="Refresh workspace data"
-              onClick={loadData}
-              disabled={refreshing}
-            >
-              <RefreshCw size={17} className={refreshing ? 'spinning' : ''} />
-            </button>
-
-            <button
-              className="icon notification-bell-btn"
-              title="Executive Approvals & Notifications"
-              onClick={() => setApproverModalOpen(true)}
-              style={{ position: 'relative' }}
-            >
-              <Bell size={18} />
-              {(notifications || []).filter(n => n.status === 'pending').length > 0 && (
-                <span className="bell-badge">
-                  {(notifications || []).filter(n => n.status === 'pending').length}
-                </span>
-              )}
-            </button>
-
-            <div className="user-badge" title={currentUser.email}>
-              {currentUser.name ? currentUser.name[0].toUpperCase() : 'A'}
-            </div>
-
-            <button
-              className="icon"
-              title="Sign out"
-              onClick={handleLogout}
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        </header>
+      <div className="main topnav-main">
 
         {/* TOAST MESSAGE */}
         {toast && (
@@ -705,8 +854,8 @@ export default function App() {
 
         {/* TAB CONTENTS */}
         <div className="content">
-          {/* TAB 1: OVERVIEW */}
-          {activeTab === 'Overview' && (
+          {/* TAB 1: DASHBOARD */}
+          {(activeTab === 'Dashboard' || activeTab === 'Overview') && (
             <OverviewView
               data={data}
               property={currentProperty}
@@ -717,6 +866,7 @@ export default function App() {
               onCheckIn={res => handleCheckIn(res)}
               onCheckOut={res => handleCheckOut(res)}
               onNewTask={unitId => openNewTaskDialog(unitId)}
+              onMarkReady={unit => handleQuickMarkReady(unit)}
             />
           )}
 
@@ -1517,7 +1667,7 @@ export default function App() {
 // SUB-VIEWS
 // ==============================================================================
 
-// 1. Overview View
+// 1. Dashboard View (Enhanced Executive Overview)
 function OverviewView({
   data,
   property,
@@ -1527,7 +1677,8 @@ function OverviewView({
   onOpenExtension,
   onCheckIn,
   onCheckOut,
-  onNewTask
+  onNewTask,
+  onMarkReady
 }) {
   const [stayTab, setStayTab] = useState('in_house'); // 'in_house', 'upcoming', 'recent'
 
@@ -1546,8 +1697,14 @@ function OverviewView({
   const totalUnits = units.length;
   const occupiedUnits = units.filter(u => u.occupied).length;
   const readyUnits = units.filter(u => !u.occupied && u.readiness === 'ready').length;
-  const dirtyUnits = units.filter(u => u.readiness === 'dirty').length;
+  const dirtyUnits = units.filter(u => !u.occupied && u.readiness === 'dirty').length;
+  const maintenanceUnits = units.filter(u => !u.occupied && u.readiness === 'maintenance').length;
   const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+  // SVG Donut ring math
+  const ringRadius = 25;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference - (occupancyRate / 100) * ringCircumference;
 
   // Stays categories
   const inHouseStays = reservations.filter(r => r.status === 'checked_in');
@@ -1574,276 +1731,296 @@ function OverviewView({
   const curHour = new Date().getHours();
   const greeting = curHour < 12 ? 'Good morning' : curHour < 18 ? 'Good afternoon' : 'Good evening';
   const todayFormatted = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
+    weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
   });
 
+  const primaryOverstayUnit = overstayUnits[0];
+  const primaryOverstayInfo = primaryOverstayUnit ? getUnitOverstayInfo(primaryOverstayUnit, reservations) : null;
+  const primaryOverstayRes = primaryOverstayInfo?.reservation;
+
   return (
-    <div>
+    <div className="dash-root">
       {/* Executive Operational Header */}
-      <div className="overview-hero-bar">
+      <div className="dash-hero">
         <div>
-          <p className="eyebrow" style={{ margin: 0 }}>SOLTA HOTEL APARTMENT · OPERATIONS DASHBOARD</p>
-          <h1 style={{ margin: '6px 0 4px', fontSize: 28, letterSpacing: '-0.5px' }}>
-            {greeting}, Solta Team
-          </h1>
-          <div className="overview-date-pill">
-            <Clock size={14} color="#0052cc" />
-            <span>{todayFormatted} · Africa/Addis_Ababa</span>
+          <div className="dash-date-pill">
+            <span>{todayFormatted} · {property?.timezone || 'Africa/Addis_Ababa'}</span>
           </div>
+          <h1 className="dash-greeting">{greeting}, Solta Team</h1>
+          <p className="dash-subtitle">
+            Here is what needs you today across {totalUnits} apartment{totalUnits === 1 ? '' : 's'} in {property?.location || 'Bole'}.
+          </p>
         </div>
 
-        <div className="overview-actions-row">
-          <button onClick={onNewBooking} style={{ background: '#0052cc', color: '#fff' }}>
+        <div className="dash-hero-actions">
+          <button onClick={onNewBooking} className="dash-btn-primary">
             <Plus size={16} />
             <span>New booking</span>
           </button>
-          <button className="secondary" onClick={() => onNavigate('Finance')}>
-            <DollarSign size={16} />
+          <button className="secondary dash-btn-secondary" onClick={() => onNavigate('Finance')}>
             <span>Finance</span>
           </button>
-          <button className="secondary" onClick={() => onNavigate('Apartments')}>
-            <Building2 size={16} />
+          <button className="secondary dash-btn-secondary" onClick={() => onNavigate('Apartments')}>
             <span>Apartments</span>
           </button>
         </div>
       </div>
 
       {/* OVERSTAY ALERT BANNER (High Priority) */}
-      {overstayUnits.length > 0 && (
-        <div className="overstay-alert-banner">
-          <div className="overstay-banner-icon">
-            <AlertTriangle size={22} color="#dc2626" />
+      {overstayUnits.length > 0 && primaryOverstayUnit && (
+        <div className="dash-overstay-banner">
+          <div className="dash-overstay-left">
+            <div className="dash-overstay-icon">
+              <AlertTriangle size={20} color="#ffffff" />
+            </div>
+            <div>
+              <div className="dash-overstay-title">
+                {overstayUnits.length} overstay{overstayUnits.length > 1 ? 's need' : ' needs'} action ·{' '}
+                {overstayUnits.map(u => u.code).join(', ')}
+                {primaryOverstayInfo?.timeOverdue ? ` · ${primaryOverstayInfo.timeOverdue} past checkout` : ''}
+              </div>
+              <div className="dash-overstay-desc">
+                {overstayUnits.length === 1
+                  ? `Guest "${primaryOverstayRes?.guest_name || 'Guest'}" was due out ${formatDate(primaryOverstayRes?.departure)}. Extend the stay or proceed to checkout.`
+                  : `${overstayUnits.length} apartments have stayed past scheduled checkout. Extend the stay or proceed to checkout.`}
+              </div>
+            </div>
           </div>
-          <div className="overstay-banner-content">
-            <div className="overstay-banner-title">
-              <strong>Overstay Alert: {overstayUnits.length} apartment{overstayUnits.length > 1 ? 's' : ''} past departure time</strong>
-              <span className="overstay-banner-tag">Action Required</span>
-            </div>
-            <p className="overstay-banner-text">
-              Guests in {overstayUnits.map(u => u.code).join(', ')} have stayed past their scheduled checkout time. Please click <strong>Extension</strong> or proceed to checkout.
-            </p>
-            <div className="overstay-chips-list">
-              {overstayUnits.map(unit => {
-                const info = getUnitOverstayInfo(unit, reservations);
-                const res = info?.reservation;
-                return (
-                  <div key={unit.id} className="overstay-chip">
-                    <span className="overstay-chip-title">
-                      <strong>{unit.code}</strong> ({res?.guest_name || 'Guest'})
-                    </span>
-                    <span className="overstay-chip-time">
-                      ⚠️ {info?.timeOverdue} overdue
-                    </span>
-                    <button
-                      className="small extension-btn"
-                      onClick={() => onOpenExtension && onOpenExtension(unit, res)}
-                    >
-                      Extension
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+
+          <div className="dash-overstay-actions">
+            <button
+              type="button"
+              className="dash-btn-primary"
+              onClick={() => onOpenExtension && onOpenExtension(primaryOverstayUnit, primaryOverstayRes)}
+            >
+              Extend stay
+            </button>
+            {primaryOverstayRes && onCheckOut && (
+              <button
+                type="button"
+                className="secondary dash-btn-secondary"
+                onClick={() => onCheckOut(primaryOverstayRes)}
+              >
+                Check out
+              </button>
+            )}
           </div>
         </div>
       )}
 
-      {/* 6 Executive Scoreboard KPI Cards */}
-      <div className="overview-kpis">
-        {/* KPI 1: Total Units */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>Total Capacity</span>
-            <div className="overview-kpi-icon-box" style={{ background: '#e0f2fe', color: '#0369a1' }}>
-              <Building2 size={16} />
-            </div>
+      {/* 5 Executive Scoreboard KPI Cards */}
+      <div className="dash-kpis">
+        {/* KPI 1: Occupancy with Circular Donut */}
+        <div className="dash-kpi-card dash-kpi-occupancy">
+          <div>
+            <div className="dash-kpi-label">Occupancy</div>
+            <div className="dash-kpi-val">{occupancyRate}%</div>
+            <div className="dash-kpi-sub">{occupiedUnits} of {totalUnits} occupied</div>
           </div>
-          <div className="overview-kpi-val">{totalUnits}</div>
-          <p className="overview-kpi-sub">Whole serviced apartments in Bole</p>
+          <div className="dash-donut-wrap" aria-label={`${occupancyRate}% occupancy`}>
+            <svg width="64" height="64" viewBox="0 0 64 64">
+              <circle
+                cx="32"
+                cy="32"
+                r={ringRadius}
+                fill="none"
+                stroke="#e2e8f0"
+                strokeWidth="6"
+              />
+              <circle
+                cx="32"
+                cy="32"
+                r={ringRadius}
+                fill="none"
+                stroke="#2563eb"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={ringCircumference}
+                strokeDashoffset={ringOffset}
+                transform="rotate(-90 32 32)"
+              />
+            </svg>
+            <span className="dash-donut-text">{occupiedUnits}/{totalUnits}</span>
+          </div>
         </div>
 
-        {/* KPI 2: Live Occupancy */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>Live Occupancy</span>
-            <div className="overview-kpi-icon-box" style={{ background: '#ecfdf5', color: '#047857' }}>
-              <Users size={16} />
-            </div>
-          </div>
-          <div className="overview-kpi-val" style={{ color: occupiedUnits > 0 ? '#15803d' : 'var(--ink)' }}>
-            {occupancyRate}%
-          </div>
-          <div className="overview-progress-bar">
-            <div
-              className="overview-progress-fill"
-              style={{ width: `${occupancyRate}%`, background: '#16a34a' }}
-            />
-          </div>
-          <p className="overview-kpi-sub">{occupiedUnits} of {totalUnits} apartments occupied</p>
+        {/* KPI 2: In-house guests */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-label">In-house guests</div>
+          <div className="dash-kpi-val">{inHouseStays.length}</div>
+          <div className="dash-kpi-sub">Checked-in guest folios</div>
         </div>
 
-        {/* KPI 3: In-House Guests */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>In-House Guests</span>
-            <div className="overview-kpi-icon-box" style={{ background: '#eff6ff', color: '#1d4ed8' }}>
-              <Bed size={16} />
-            </div>
-          </div>
-          <div className="overview-kpi-val">{inHouseStays.length}</div>
-          <p className="overview-kpi-sub">Checked-in guest folios</p>
+        {/* KPI 3: Upcoming stays */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-label">Upcoming stays</div>
+          <div className="dash-kpi-val">{upcomingStays.length}</div>
+          <div className="dash-kpi-sub">Confirmed reservations</div>
         </div>
 
-        {/* KPI 4: Upcoming Stays */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>Upcoming Stays</span>
-            <div className="overview-kpi-icon-box" style={{ background: '#f5f3ff', color: '#6d28d9' }}>
-              <Calendar size={16} />
-            </div>
+        {/* KPI 4: Ready to sell */}
+        <div className="dash-kpi-card">
+          <div className="dash-kpi-label">Ready to sell</div>
+          <div className="dash-kpi-val">
+            {readyUnits}
+            <span className="dash-kpi-total">/{totalUnits}</span>
           </div>
-          <div className="overview-kpi-val">{upcomingStays.length}</div>
-          <p className="overview-kpi-sub">Confirmed upcoming reservations</p>
+          <div className="dash-kpi-sub">
+            {dirtyUnits > 0
+              ? `${dirtyUnits} dirty, awaiting clean`
+              : maintenanceUnits > 0
+                ? `${maintenanceUnits} in maintenance`
+                : 'All vacant rooms ready'}
+          </div>
         </div>
 
-        {/* KPI 5: Room Readiness */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>Room Readiness</span>
-            <div className="overview-kpi-icon-box" style={{ background: dirtyUnits > 0 ? '#fef3c7' : '#ecfdf5', color: dirtyUnits > 0 ? '#b45309' : '#047857' }}>
-              <Sparkles size={16} />
-            </div>
-          </div>
-          <div className="overview-kpi-val" style={{ color: dirtyUnits > 0 ? '#b45309' : '#15803d' }}>
-            {readyUnits} Ready
-          </div>
-          <p className="overview-kpi-sub">
-            {dirtyUnits > 0 ? `${dirtyUnits} dirty / awaiting clean` : 'All vacant rooms ready for check-in'}
-          </p>
-        </div>
-
-        {/* KPI 6: Realized Revenue */}
-        <div className="overview-kpi-card">
-          <div className="overview-kpi-top">
-            <span>Realized Revenue</span>
-            <div className="overview-kpi-icon-box" style={{ background: '#ecfdf5', color: '#047857' }}>
-              <DollarSign size={16} />
-            </div>
-          </div>
-          <div className="overview-kpi-val" style={{ fontSize: 22, color: '#15803d' }}>
+        {/* KPI 5: Realized revenue (Dark Navy Hero Card) */}
+        <div className="dash-kpi-card dash-kpi-dark" onClick={() => onNavigate('Finance')} style={{ cursor: 'pointer' }}>
+          <div className="dash-kpi-label">Realized revenue</div>
+          <div className="dash-kpi-val" style={{ fontSize: 24 }}>
             {formatMoney(totalPayments, property.currency)}
           </div>
-          <p className="overview-kpi-sub">Deposits held: {formatMoney(heldDeposits, property.currency)}</p>
+          <div className="dash-kpi-sub">
+            Deposits held: {formatMoney(heldDeposits, property.currency)}
+          </div>
         </div>
       </div>
 
-      {/* Apartment Status Matrix (Direct Room Cards with 1-Click Specs & Extension) */}
-      <section className="panel space" style={{ marginBottom: 28 }}>
-        <div className="panelheading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* Apartments Right Now Grid */}
+      <section className="dash-apartments-section">
+        <div className="dash-section-header">
           <div>
-            <h2>Apartment Status &amp; Readiness Matrix</h2>
-            <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
-              Live apartment condition, current guest occupants, and quick operations
-            </p>
+            <h2>Apartments right now</h2>
+            <p>Condition, occupant and next action for each unit</p>
           </div>
-          <button className="small secondary" onClick={() => onNavigate('Apartments')}>
-            <span>View all in Apartments</span>
-            <ChevronRight size={14} />
+          <button
+            type="button"
+            className="dash-view-all-link"
+            onClick={() => onNavigate('Apartments')}
+          >
+            <span>View all apartments</span>
+            <ArrowRight size={15} />
           </button>
         </div>
 
-        <div className="overview-matrix-grid">
+        <div className="dash-apartments-grid">
           {units.map(unit => {
-            const catKey = (unit.category || '').toLowerCase().includes('two')
-              ? 'two'
-              : (unit.category || '').toLowerCase().includes('three')
-                ? 'three'
-                : 'one';
-            const imgObj = APARTMENT_IMAGES[catKey];
             const overstayInfo = getUnitOverstayInfo(unit, reservations);
-            const activeRes = overstayInfo?.reservation;
+            const activeRes = overstayInfo?.reservation || reservations.find(
+              r => (r.unit_id === unit.id || r.unit_code === unit.code) && r.status === 'checked_in'
+            );
+
+            let statusKey = 'ready';
+            let statusLabel = 'Ready';
+            if (overstayInfo?.isOverstay) {
+              statusKey = 'overstayed';
+              statusLabel = `Overstayed ${overstayInfo.timeOverdue}`;
+            } else if (unit.occupied) {
+              statusKey = 'occupied';
+              statusLabel = 'Occupied';
+            } else if (unit.readiness === 'dirty') {
+              statusKey = 'dirty';
+              statusLabel = 'Dirty';
+            } else if (unit.readiness === 'maintenance') {
+              statusKey = 'maintenance';
+              statusLabel = 'Maintenance';
+            }
 
             return (
               <div
                 key={unit.id}
-                className={`overview-matrix-card ${overstayInfo?.isOverstay ? 'overstay' : ''}`}
+                className={`dash-unit-card status-${statusKey}`}
                 onClick={() => onSelectUnit && onSelectUnit(unit)}
               >
-                <div className="overview-matrix-photo">
-                  <img src={imgObj.src} alt={unit.code} />
-                  {overstayInfo?.isOverstay ? (
-                    <span className="badge badge-overstay" style={{ position: 'absolute', top: 10, left: 10 }}>
-                      ⚠️ Overstayed ({overstayInfo.timeOverdue})
-                    </span>
-                  ) : (
-                    <span className={`badge ${unit.occupied ? 'occupied' : unit.readiness}`} style={{ position: 'absolute', top: 10, left: 10 }}>
-                      {unit.occupied ? 'Occupied' : unit.readiness}
-                    </span>
-                  )}
-                  <span className="unitphoto-caption">Click for Room Specifications</span>
+                <div className={`dash-unit-head status-${statusKey}`}>
+                  <strong className="dash-unit-code">{unit.code}</strong>
+                  <span className={`dash-unit-pill status-${statusKey}`}>
+                    <span className="dash-unit-dot" />
+                    <span>{statusLabel}</span>
+                  </span>
                 </div>
 
-                <div className="overview-matrix-body">
-                  <div className="overview-matrix-title-row">
-                    <h3>{unit.code}</h3>
-                    <strong style={{ color: 'var(--ink)' }}>{formatMoney(unit.nightly_rate, property.currency)}</strong>
+                <div className="dash-unit-body">
+                  <div className="dash-unit-meta">
+                    {unit.category} · {unit.capacity} guests · {formatMoney(unit.nightly_rate, property.currency)}/night
                   </div>
-                  <span className="muted" style={{ fontSize: 12 }}>
-                    {unit.category} · {unit.capacity} Guests
-                  </span>
 
                   {activeRes ? (
-                    <div className="overview-matrix-guest-info">
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <strong style={{ color: overstayInfo?.isOverstay ? '#b91c1c' : '#1e293b' }}>
-                          {activeRes.guest_name}
-                        </strong>
-                        <span style={{ fontSize: 10, color: 'var(--muted)' }}>Ref: {activeRes.reference}</span>
-                      </div>
-                      <div style={{ color: 'var(--muted)', marginTop: 2 }}>
-                        Departs: <strong>{formatDate(activeRes.departure)}</strong>
+                    <div className={`dash-unit-status-box ${statusKey === 'overstayed' ? 'overstayed' : ''}`}>
+                      <strong className="dash-unit-guest">{activeRes.guest_name}</strong>
+                      <div className="dash-unit-guest-sub">
+                        {statusKey === 'overstayed' ? 'Was due out ' : 'Departs '}
+                        {formatDate(activeRes.departure)} · {activeRes.reference}
                       </div>
                     </div>
+                  ) : statusKey === 'dirty' ? (
+                    <div className="dash-unit-status-box">
+                      Vacant. Needs cleaning before it can be sold.
+                    </div>
+                  ) : statusKey === 'maintenance' ? (
+                    <div className="dash-unit-status-box">
+                      Under maintenance. Not sellable.
+                    </div>
                   ) : (
-                    <div style={{ padding: '8px 0', fontSize: 11, color: '#15803d' }}>
-                      ✓ Clean &amp; available for immediate check-in
+                    <div className="dash-unit-status-box">
+                      Clean and available for immediate check-in.
                     </div>
                   )}
 
-                  <div className="overview-matrix-footer">
-                    <small className="muted" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      <span>Specs &amp; beds</span>
-                      <ArrowUpRight size={13} />
-                    </small>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      {activeRes ? (
+                  <div className="dash-unit-actions" onClick={e => e.stopPropagation()}>
+                    {statusKey === 'overstayed' && activeRes ? (
+                      <>
                         <button
                           type="button"
-                          className="small extension-btn"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onOpenExtension && onOpenExtension(unit, activeRes);
-                          }}
-                          title="Extend stay"
+                          className="dash-unit-btn-primary"
+                          onClick={() => onOpenExtension && onOpenExtension(unit, activeRes)}
                         >
-                          Extension
+                          Extend
                         </button>
-                      ) : (
                         <button
                           type="button"
-                          className="small secondary"
-                          onClick={e => {
-                            e.stopPropagation();
-                            onNewBooking && onNewBooking();
-                          }}
+                          className="dash-unit-btn-secondary"
+                          onClick={() => onCheckOut && onCheckOut(activeRes)}
                         >
-                          Book Now
+                          Check out
                         </button>
-                      )}
-                    </div>
+                      </>
+                    ) : statusKey === 'occupied' ? (
+                      <button
+                        type="button"
+                        className="dash-unit-btn-secondary full"
+                        onClick={() => onSelectUnit && onSelectUnit(unit)}
+                      >
+                        Room details
+                      </button>
+                    ) : statusKey === 'dirty' ? (
+                      <button
+                        type="button"
+                        className="dash-unit-btn-secondary full"
+                        onClick={() => onNewTask && onNewTask(unit.id)}
+                      >
+                        Assign housekeeping
+                      </button>
+                    ) : statusKey === 'maintenance' ? (
+                      <button
+                        type="button"
+                        className="dash-unit-btn-secondary full"
+                        onClick={() => onMarkReady ? onMarkReady(unit) : (onSelectUnit && onSelectUnit(unit))}
+                      >
+                        Mark as ready
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="dash-unit-btn-primary full"
+                        onClick={() => onNewBooking && onNewBooking()}
+                      >
+                        Book this apartment
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
