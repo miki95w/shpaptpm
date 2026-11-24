@@ -1104,7 +1104,11 @@ export default function App() {
         { name: 'nightly_rate', label: 'Nightly Rate (ETB)', type: 'number', required: true, value: 3500 }
       ],
       submit: async values => {
-        await apiCall('/data', 'POST', { action: 'create_unit', ...values, propertyId });
+        try {
+          await apiCall('/units', 'POST', { ...values, propertyId });
+        } catch (err) {
+          await apiCall('/data', 'POST', { action: 'create_unit', ...values, propertyId });
+        }
         return 'Apartment added';
       }
     });
@@ -2902,126 +2906,126 @@ function BookingsView({
                 const hasOverdue = installments.some(i => i.status === 'overdue');
 
                 return (
-                <tr key={res.id}>
-                  <td>
-                    <strong>{res.guest_name}</strong>
-                    <small className="muted" style={{ display: 'block' }}>{res.reference}</small>
-                    {res.payment_terms && res.payment_terms !== 'upfront' && (
-                      <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <span
-                          className="badge"
-                          style={{
-                            background: '#e0f2fe',
-                            color: '#0369a1',
-                            border: '1px solid #bae6fd',
-                            fontSize: '11px',
-                            padding: '2px 6px',
-                            cursor: onOpenStayAccount ? 'pointer' : 'default'
-                          }}
-                          onClick={() => onOpenStayAccount && onOpenStayAccount(res)}
-                          title="Click to view installment schedule in Stay Folio"
-                        >
-                          📅 {res.payment_terms === 'monthly' ? 'Monthly Plan' : res.payment_terms === 'semi_annual' ? 'Semi-Annual (2 Pay)' : res.payment_terms === 'tri_annual' ? 'Tri-Annual (3 Pay)' : 'Quarterly (4 Pay)'} ({paidCount}/{totalCount} Paid)
-                        </span>
-                        {hasOverdue && (
+                  <tr key={res.id}>
+                    <td>
+                      <strong>{res.guest_name}</strong>
+                      <small className="muted" style={{ display: 'block' }}>{res.reference}</small>
+                      {res.payment_terms && res.payment_terms !== 'upfront' && (
+                        <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                           <span
                             className="badge"
                             style={{
-                              background: '#fee2e2',
-                              color: '#991b1b',
-                              border: '1px solid #fca5a5',
+                              background: '#e0f2fe',
+                              color: '#0369a1',
+                              border: '1px solid #bae6fd',
                               fontSize: '11px',
-                              padding: '2px 6px'
+                              padding: '2px 6px',
+                              cursor: onOpenStayAccount ? 'pointer' : 'default'
                             }}
+                            onClick={() => onOpenStayAccount && onOpenStayAccount(res)}
+                            title="Click to view installment schedule in Stay Folio"
                           >
-                            ⚠️ Installment Due
+                            📅 {res.payment_terms === 'monthly' ? 'Monthly Plan' : res.payment_terms === 'semi_annual' ? 'Semi-Annual (2 Pay)' : res.payment_terms === 'tri_annual' ? 'Tri-Annual (3 Pay)' : 'Quarterly (4 Pay)'} ({paidCount}/{totalCount} Paid)
                           </span>
-                        )}
-                      </div>
-                    )}
-                  </td>
-                  <td>{res.unit_code}</td>
-                  <td>
-                    {formatDate(res.arrival)}
-                    <small className="muted" style={{ display: 'block' }}>to {formatDate(res.departure)}</small>
-                  </td>
-                  <td>
-                    <span className="badge">{res.source}</span>
-                  </td>
-                  <td>
-                    {res.status === 'pending_approval' ? (
-                      <span className="badge" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
-                        Awaiting Approval
-                      </span>
-                    ) : (
-                      <span className={`badge ${res.status}`}>{res.status}</span>
-                    )}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {onOpenStayAccount && (
-                        <button
-                          className="small secondary"
-                          onClick={() => onOpenStayAccount(res)}
-                          title="Open Stay Folio & Installment Schedule"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                        >
-                          <Receipt size={13} />
-                          <span>Folio</span>
-                        </button>
+                          {hasOverdue && (
+                            <span
+                              className="badge"
+                              style={{
+                                background: '#fee2e2',
+                                color: '#991b1b',
+                                border: '1px solid #fca5a5',
+                                fontSize: '11px',
+                                padding: '2px 6px'
+                              }}
+                            >
+                              ⚠️ Installment Due
+                            </span>
+                          )}
+                        </div>
                       )}
-                      {res.status === 'pending_approval' && (
-                        <>
-                          <button
-                            className="small"
-                            style={{ background: '#16a34a', color: '#fff' }}
-                            onClick={() => onApprove && onApprove(res)}
-                            title="Approve booking"
-                          >
-                            Approve
-                          </button>
+                    </td>
+                    <td>{res.unit_code}</td>
+                    <td>
+                      {formatDate(res.arrival)}
+                      <small className="muted" style={{ display: 'block' }}>to {formatDate(res.departure)}</small>
+                    </td>
+                    <td>
+                      <span className="badge">{res.source}</span>
+                    </td>
+                    <td>
+                      {res.status === 'pending_approval' ? (
+                        <span className="badge" style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', fontWeight: 600 }}>
+                          Awaiting Approval
+                        </span>
+                      ) : (
+                        <span className={`badge ${res.status}`}>{res.status}</span>
+                      )}
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {onOpenStayAccount && (
                           <button
                             className="small secondary"
-                            style={{ color: '#dc2626', borderColor: '#fca5a5' }}
-                            onClick={() => onReject && onReject(res)}
-                            title="Reject booking"
+                            onClick={() => onOpenStayAccount(res)}
+                            title="Open Stay Folio & Installment Schedule"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           >
-                            Reject
+                            <Receipt size={13} />
+                            <span>Folio</span>
                           </button>
-                        </>
-                      )}
-                      {res.status === 'confirmed' && (
-                        <>
-                          <button className="small secondary" onClick={() => onOpenChecklist(res)}>
-                            Check-in list
-                          </button>
-                          <button className="small" onClick={() => onCheckIn(res)}>
-                            Check in
-                          </button>
-                          <button className="small secondary" onClick={() => onExtend(res)}>
-                            Extend
-                          </button>
-                          <button className="small secondary" onClick={() => onCancel(res)}>
-                            Cancel
-                          </button>
-                        </>
-                      )}
-                      {res.status === 'checked_in' && (
-                        <>
-                          <button className="small secondary" onClick={() => onOpenCheckoutList(res)}>
-                            Checkout list
-                          </button>
-                          <button className="small" onClick={() => onCheckOut(res)}>
-                            Check out
-                          </button>
-                          <button className="small secondary" onClick={() => onExtend(res)}>
-                            Extend
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                        )}
+                        {res.status === 'pending_approval' && (
+                          <>
+                            <button
+                              className="small"
+                              style={{ background: '#16a34a', color: '#fff' }}
+                              onClick={() => onApprove && onApprove(res)}
+                              title="Approve booking"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="small secondary"
+                              style={{ color: '#dc2626', borderColor: '#fca5a5' }}
+                              onClick={() => onReject && onReject(res)}
+                              title="Reject booking"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {res.status === 'confirmed' && (
+                          <>
+                            <button className="small secondary" onClick={() => onOpenChecklist(res)}>
+                              Check-in list
+                            </button>
+                            <button className="small" onClick={() => onCheckIn(res)}>
+                              Check in
+                            </button>
+                            <button className="small secondary" onClick={() => onExtend(res)}>
+                              Extend
+                            </button>
+                            <button className="small secondary" onClick={() => onCancel(res)}>
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {res.status === 'checked_in' && (
+                          <>
+                            <button className="small secondary" onClick={() => onOpenCheckoutList(res)}>
+                              Checkout list
+                            </button>
+                            <button className="small" onClick={() => onCheckOut(res)}>
+                              Check out
+                            </button>
+                            <button className="small secondary" onClick={() => onExtend(res)}>
+                              Extend
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
               {filtered.length === 0 && (

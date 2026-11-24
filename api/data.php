@@ -12,6 +12,37 @@ $propertyId = $_GET['propertyId'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c';
 try {
     $db = getDB();
 
+    // Handle POST /api/data actions (e.g. create_unit)
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = getJsonInput();
+        $action = $input['action'] ?? '';
+
+        if ($action === 'create_unit') {
+            $code = trim($input['code'] ?? '');
+            $category = trim($input['category'] ?? 'One bedroom');
+            $capacity = intval($input['capacity'] ?? 2);
+            $nightlyRate = floatval($input['nightly_rate'] ?? 3500);
+            $propId = $input['propertyId'] ?? $propertyId;
+
+            if (empty($code)) {
+                jsonError('Unit code is required', 400);
+            }
+
+            $stmtChk = $db->prepare("SELECT id FROM units WHERE property_id = ? AND code = ?");
+            $stmtChk->execute([$propId, $code]);
+            if ($stmtChk->fetch()) {
+                jsonError("Apartment code '{$code}' already exists", 400);
+            }
+
+            $unitId = generateUuid();
+            $stmtIns = $db->prepare("INSERT INTO units (id, property_id, code, category, capacity, nightly_rate, readiness, occupied, created_at) VALUES (?, ?, ?, ?, ?, ?, 'ready', 0, NOW())");
+            $stmtIns->execute([$unitId, $propId, $code, $category, $capacity, $nightlyRate]);
+
+            logAudit($propId, 'unit.created', $user['name'], ['code' => $code, 'category' => $category, 'rate' => $nightlyRate]);
+            jsonResponse(['ok' => true, 'id' => $unitId, 'code' => $code], 201);
+        }
+    }
+
     // 1. Units / Apartments
     $stmtUnits = $db->prepare("SELECT * FROM units WHERE property_id = ? ORDER BY code ASC");
     $stmtUnits->execute([$propertyId]);

@@ -36,6 +36,41 @@ try {
       INDEX (`unit_id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 
+    // Defensive table updates for readiness and maintenance support
+    try {
+        $db->exec("ALTER TABLE units MODIFY COLUMN readiness VARCHAR(50) NOT NULL DEFAULT 'ready'");
+    } catch (Exception $e) {}
+    try {
+        $db->exec("ALTER TABLE maintenance_records ADD COLUMN notes TEXT NULL");
+    } catch (Exception $e) {}
+
+    // 0. POST /api/units or POST /api/units/create -> Add new apartment unit
+    if (($action === '' || $action === 'create' || ($input['action'] ?? '') === 'create_unit') && $method === 'POST') {
+        $code = trim($input['code'] ?? '');
+        $category = trim($input['category'] ?? 'One bedroom');
+        $capacity = intval($input['capacity'] ?? 2);
+        $nightlyRate = floatval($input['nightly_rate'] ?? 3500);
+        $propertyId = $input['propertyId'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c';
+
+        if (empty($code)) {
+            jsonError('Unit code is required', 400);
+        }
+
+        // Check if code already exists
+        $stmtChk = $db->prepare("SELECT id FROM units WHERE property_id = ? AND code = ?");
+        $stmtChk->execute([$propertyId, $code]);
+        if ($stmtChk->fetch()) {
+            jsonError("Apartment code '{$code}' already exists", 400);
+        }
+
+        $unitId = generateUuid();
+        $stmtIns = $db->prepare("INSERT INTO units (id, property_id, code, category, capacity, nightly_rate, readiness, occupied, created_at) VALUES (?, ?, ?, ?, ?, ?, 'ready', 0, NOW())");
+        $stmtIns->execute([$unitId, $propertyId, $code, $category, $capacity, $nightlyRate]);
+
+        logAudit($propertyId, 'unit.created', $user['name'], ['code' => $code, 'category' => $category, 'rate' => $nightlyRate]);
+        jsonResponse(['ok' => true, 'id' => $unitId, 'code' => $code], 201);
+    }
+
     // 1. POST /api/units/mode -> Set apartment operational mode
     if ($action === 'mode' && $method === 'POST') {
         $unitId = $input['unitId'] ?? '';
