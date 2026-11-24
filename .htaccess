@@ -14,10 +14,13 @@ RewriteEngine On
 </IfModule>
 
 # 2. Block sensitive files
-<FilesMatch "(\.env|\.git|\.sql|\.log|package\.json|package-lock\.json)$">
+<FilesMatch "(\.env|\.git|\.sql|\.log|\.sess|package\.json|package-lock\.json)$">
     Order allow,deny
     Deny from all
 </FilesMatch>
+
+# Block direct access to sessions directory
+RewriteRule ^sessions(/.*)?$ - [F,L]
 
 # 3. API Route Rewrites
 RewriteRule ^api/login/?$ api/auth.php?action=login [QSA,L]

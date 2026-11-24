@@ -6,6 +6,49 @@
 
 require_once __DIR__ . '/config.php';
 
+// Guarantee a secure, user-writable session directory for cPanel & PHP-FPM
+if (!function_exists('getWritableSessionPath')) {
+    function getWritableSessionPath() {
+        $current = @session_save_path();
+        if (!empty($current) && @is_dir($current) && @is_writable($current)) {
+            return $current;
+        }
+
+        $candidates = [];
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $parent = dirname($_SERVER['DOCUMENT_ROOT']);
+            $candidates[] = $parent . '/tmp';
+        }
+        if (!empty($_SERVER['HOME'])) {
+            $candidates[] = $_SERVER['HOME'] . '/tmp';
+        }
+        $candidates[] = dirname(__DIR__) . '/sessions';
+        $candidates[] = sys_get_temp_dir();
+        $candidates[] = '/tmp';
+
+        foreach ($candidates as $path) {
+            if (!@is_dir($path)) {
+                @mkdir($path, 0700, true);
+            }
+            if (@is_dir($path) && @is_writable($path)) {
+                if (strpos($path, 'sessions') !== false && !file_exists($path . '/.htaccess')) {
+                    @file_put_contents($path . '/.htaccess', "Order deny,allow\nDeny from all\n");
+                }
+                return $path;
+            }
+        }
+        return $current;
+    }
+}
+
+// Automatically configure writable session path before any session_start()
+if (session_status() === PHP_SESSION_NONE) {
+    $wPath = getWritableSessionPath();
+    if (!empty($wPath) && $wPath !== @session_save_path()) {
+        @session_save_path($wPath);
+    }
+}
+
 function getDB() {
     static $pdo = null;
     if ($pdo !== null) {

@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/db.php';
 
 $uri = $_SERVER['REQUEST_URI'] ?? '';
 $path = parse_url($uri, PHP_URL_PATH);

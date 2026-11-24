@@ -41,9 +41,49 @@ function jsonError($message, $statusCode = 400) {
     jsonResponse(['message' => $message], $statusCode);
 }
 
+// Guarantee a secure, user-writable session directory for cPanel & PHP-FPM
+if (!function_exists('getWritableSessionPath')) {
+    function getWritableSessionPath() {
+        $current = @session_save_path();
+        if (!empty($current) && @is_dir($current) && @is_writable($current)) {
+            return $current;
+        }
+
+        $candidates = [];
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $parent = dirname($_SERVER['DOCUMENT_ROOT']);
+            $candidates[] = $parent . '/tmp';
+        }
+        if (!empty($_SERVER['HOME'])) {
+            $candidates[] = $_SERVER['HOME'] . '/tmp';
+        }
+        $candidates[] = dirname(__DIR__) . '/sessions';
+        $candidates[] = sys_get_temp_dir();
+        $candidates[] = '/tmp';
+
+        foreach ($candidates as $path) {
+            if (!@is_dir($path)) {
+                @mkdir($path, 0700, true);
+            }
+            if (@is_dir($path) && @is_writable($path)) {
+                if (strpos($path, 'sessions') !== false && !file_exists($path . '/.htaccess')) {
+                    @file_put_contents($path . '/.htaccess', "Order deny,allow\nDeny from all\n");
+                }
+                return $path;
+            }
+        }
+        return $current;
+    }
+}
+
 // Start Secure Session
 function initSession() {
     if (session_status() === PHP_SESSION_NONE) {
+        $savePath = getWritableSessionPath();
+        if (!empty($savePath) && $savePath !== @session_save_path()) {
+            @session_save_path($savePath);
+        }
+
         $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
             || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443)
             || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower($_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https');
@@ -58,7 +98,7 @@ function initSession() {
         ]);
         
         session_name('solta_session');
-        session_start();
+        @session_start();
     }
 }
 
