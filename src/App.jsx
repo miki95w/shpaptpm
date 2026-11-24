@@ -95,7 +95,14 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     body: body ? JSON.stringify(body) : undefined
   });
 
-  const data = await res.json().catch(() => ({}));
+  const text = await res.text();
+  let data = {};
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    const cleanText = text.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    data = { message: cleanText.substring(0, 160) || `Request failed (${res.status})` };
+  }
   if (!res.ok) {
     throw new Error(data.message || `Request failed (${res.status})`);
   }

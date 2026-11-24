@@ -30,13 +30,10 @@ function jsonResponse($data, $statusCode = 200) {
     exit;
 }
 
-// JSON Error Helper (Sanitizes 500 internal errors in production)
+// JSON Error Helper
 function jsonError($message, $statusCode = 400) {
-    if (!defined('DEV_MODE') || !DEV_MODE) {
-        if ($statusCode >= 500) {
-            error_log("Internal API error: " . $message);
-            $message = 'An unexpected server error occurred. Please contact system support.';
-        }
+    if ($statusCode >= 500) {
+        error_log("Internal API error: " . $message);
     }
     jsonResponse(['message' => $message], $statusCode);
 }
@@ -44,6 +41,16 @@ function jsonError($message, $statusCode = 400) {
 // Guarantee a secure, user-writable session directory for cPanel & PHP-FPM
 if (!function_exists('getWritableSessionPath')) {
     function getWritableSessionPath() {
+        // 1. Primary: Local sessions directory inside app
+        $localSessions = dirname(__DIR__) . '/sessions';
+        if (!is_dir($localSessions)) {
+            @mkdir($localSessions, 0700, true);
+        }
+        if (is_dir($localSessions) && is_writable($localSessions)) {
+            return $localSessions;
+        }
+
+        // 2. Existing configured path if writable
         $current = @session_save_path();
         if (!empty($current) && @is_dir($current) && @is_writable($current)) {
             return $current;
@@ -57,7 +64,6 @@ if (!function_exists('getWritableSessionPath')) {
         if (!empty($_SERVER['HOME'])) {
             $candidates[] = $_SERVER['HOME'] . '/tmp';
         }
-        $candidates[] = dirname(__DIR__) . '/sessions';
         $candidates[] = sys_get_temp_dir();
         $candidates[] = '/tmp';
 
@@ -66,9 +72,6 @@ if (!function_exists('getWritableSessionPath')) {
                 @mkdir($path, 0700, true);
             }
             if (@is_dir($path) && @is_writable($path)) {
-                if (strpos($path, 'sessions') !== false && !file_exists($path . '/.htaccess')) {
-                    @file_put_contents($path . '/.htaccess', "Order deny,allow\nDeny from all\n");
-                }
                 return $path;
             }
         }

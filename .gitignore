@@ -14,7 +14,7 @@ dist-ssr
 
 # Packaging archives
 *.zip
-sessions/
+sessions/sess_*
 
 # Seed dumps
 seed_*.sql
