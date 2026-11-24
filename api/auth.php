@@ -6,6 +6,15 @@
 
 require_once __DIR__ . '/db.php';
 
+// Guarantee writable session path is set before starting session
+if (function_exists('getWritableSessionPath')) {
+    $wPath = getWritableSessionPath();
+    if (!empty($wPath)) {
+        @ini_set('session.save_path', $wPath);
+        @session_save_path($wPath);
+    }
+}
+
 initSession();
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -84,7 +93,7 @@ if ($method === 'POST' && ($action === 'login' || empty($action))) {
         }
 
         // Session regenerate to prevent fixation
-        session_regenerate_id(true);
+        @session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['user_name'] = $user['name'];
         $_SESSION['user_email'] = $user['email'];
@@ -95,12 +104,12 @@ if ($method === 'POST' && ($action === 'login' || empty($action))) {
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
         ]);
 
-        session_write_close();
+        @session_write_close();
 
         jsonResponse(['ok' => true], 201);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         error_log("Authentication processing error: " . $e->getMessage());
-        jsonError('Authentication service unavailable. Please try again later.', 500);
+        jsonError('Authentication error: ' . $e->getMessage(), 500);
     }
 }
 
