@@ -642,7 +642,7 @@ export default function App() {
       isDropdown: true,
       children: [
         { name: 'Management', label: 'Operations & HR', desc: 'Staff, expenses & utilities', icon: Briefcase, perm: 'management.view' },
-        { name: 'Finance', label: 'Finance', desc: 'Revenue, folios & methods', icon: DollarSign, perm: 'finance.view' },
+        { name: 'Finance', label: 'Finance', desc: 'Revenue, accounts & methods', icon: DollarSign, perm: 'finance.view' },
         { name: 'Access & roles', label: 'Access & roles', desc: 'Permissions & approvals', icon: Shield, perm: 'roles.manage' },
         { name: 'Audit history', label: 'Audit history', desc: 'System activity log', icon: History, perm: 'audit.view' }
       ]
@@ -2123,7 +2123,7 @@ function OverviewView({
         <div className="dash-kpi-card">
           <div className="dash-kpi-label">In-house guests</div>
           <div className="dash-kpi-val">{inHouseStays.length}</div>
-          <div className="dash-kpi-sub">Checked-in guest folios</div>
+          <div className="dash-kpi-sub">Checked-in guest stays</div>
         </div>
 
         {/* KPI 3: Upcoming stays */}
@@ -2309,7 +2309,7 @@ function OverviewView({
             <div>
               <h2>Guest Stays &amp; Movements</h2>
               <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
-                Current checked-in folios and incoming arrivals
+                Current checked-in guests and incoming arrivals
               </p>
             </div>
 
@@ -2433,7 +2433,7 @@ function OverviewView({
           </div>
         </section>
 
-        {/* Right Column: Housekeeping & Financial Pulse */}
+        {/* Right Column: Housekeeping & Turnaround Pulse */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Card 1: Housekeeping Turnaround */}
           <section className="panel space" style={{ marginBottom: 0 }}>
@@ -2479,51 +2479,6 @@ function OverviewView({
                   onClick={() => onNavigate('Housekeeping')}
                 >
                   Manage Housekeeping &rarr;
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Card 2: Financial Snapshot */}
-          <section className="panel space" style={{ marginBottom: 0 }}>
-            <div className="panelheading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h2>Finance &amp; Folios Snapshot</h2>
-                <p className="muted" style={{ margin: '2px 0 0', fontSize: 12 }}>
-                  Collections and balances
-                </p>
-              </div>
-              <button
-                className="small secondary"
-                onClick={() => onNavigate('Finance')}
-              >
-                Analytics
-              </button>
-            </div>
-
-            <div style={{ padding: '14px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span className="muted" style={{ fontSize: 13 }}>Lodging Collections:</span>
-                <strong style={{ color: '#15803d' }}>{formatMoney(totalPayments, property.currency)}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
-                <span className="muted" style={{ fontSize: 13 }}>Security Deposits:</span>
-                <strong>{formatMoney(heldDeposits, property.currency)}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
-                <span className="muted" style={{ fontSize: 13 }}>Uncollected Balances:</span>
-                <strong style={{ color: unpaidBalances > 0 ? '#b91c1c' : '#15803d' }}>
-                  {formatMoney(unpaidBalances, property.currency)}
-                </strong>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <button
-                  className="secondary"
-                  style={{ width: '100%', fontSize: 12, justifyContent: 'center' }}
-                  onClick={() => onNavigate('Finance')}
-                >
-                  Open Financial Overview &rarr;
                 </button>
               </div>
             </div>
@@ -3396,7 +3351,7 @@ function BookingsView({
                               cursor: onOpenStayAccount ? 'pointer' : 'default'
                             }}
                             onClick={() => onOpenStayAccount && onOpenStayAccount(res)}
-                            title="Click to view installment schedule in Stay Folio"
+                            title="Click to view installment schedule in Stay Account"
                           >
                             📅 {res.payment_terms === 'monthly' ? 'Monthly Plan' : res.payment_terms === 'semi_annual' ? 'Semi-Annual (2 Pay)' : res.payment_terms === 'tri_annual' ? 'Tri-Annual (3 Pay)' : 'Quarterly (4 Pay)'} ({paidCount}/{totalCount} Paid)
                           </span>
@@ -3440,11 +3395,11 @@ function BookingsView({
                           <button
                             className="small secondary"
                             onClick={() => onOpenStayAccount(res)}
-                            title="Open Stay Folio & Installment Schedule"
+                            title="Open Stay Account & Installment Schedule"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
                           >
                             <Receipt size={13} />
-                            <span>Folio</span>
+                            <span>Account</span>
                           </button>
                         )}
                         {res.status === 'pending_approval' && (
@@ -3778,7 +3733,7 @@ function FinanceView({
               <strong style={{ color: totals.outstandingBalances > 0 ? '#b94a48' : '#203449' }}>
                 {formatMoney(totals.outstandingBalances, property.currency)}
               </strong>
-              <small>Unsettled folio charges</small>
+              <small>Unsettled stay charges</small>
             </div>
             <div className="stat">
               <span>Security Deposits Held</span>
@@ -3822,7 +3777,7 @@ function FinanceView({
                     <th>Guest Name</th>
                     <th>Outstanding Balance</th>
                     <th>Deposit Held</th>
-                    <th>Folio Status</th>
+                    <th>Account Status</th>
                     <th>Action</th>
                   </tr>
                 </thead>
@@ -3869,7 +3824,7 @@ function FinanceView({
               pageSize={15}
               currentPage={accountsPage}
               onPageChange={setAccountsPage}
-              itemName="stay folios"
+              itemName="stay accounts"
             />
           </section>
         </div>
@@ -4014,7 +3969,7 @@ function FinanceView({
                 </span>
                 <div className="finance-kpi-icon"><Clock size={18} color="#546e7a" /></div>
               </div>
-              <h3>Guest Folio Receivables</h3>
+              <h3>Guest Account Receivables</h3>
               <div className="finance-kpi-val" style={{ color: totals.outstandingBalances > 0 ? '#b94a48' : '#203449' }}>
                 {formatMoney(totals.outstandingBalances, property.currency)}
               </div>
@@ -6231,7 +6186,7 @@ function AddCatalogItemModal({ categories, initialItem = null, property, onClose
                 onChange={e => setReplacementPrice(Number(e.target.value))}
               />
               <small className="muted" style={{ display: 'block', marginTop: 4 }}>
-                Charged to guest folio in event of loss or damage during stay.
+                Charged to guest account in event of loss or damage during stay.
               </small>
             </div>
           </div>
@@ -7223,7 +7178,7 @@ function StayAccountModal({
       <section className="modal stay-account-modal" onClick={e => e.stopPropagation()}>
         <header>
           <div>
-            <p className="eyebrow" style={{ margin: 0 }}>GUEST FOLIO &amp; STAY ACCOUNT</p>
+            <p className="eyebrow" style={{ margin: 0 }}>GUEST STAY ACCOUNT &amp; BILLING</p>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
               <span>Stay Account · {account.reference}</span>
               {reservation?.payment_terms && reservation.payment_terms !== 'upfront' && (
@@ -7279,7 +7234,7 @@ function StayAccountModal({
               className={`spec-tab-btn ${activeTab === 'entries' ? 'active' : ''}`}
               onClick={() => setActiveTab('entries')}
             >
-              <span>📋 All Folio Ledger Entries ({(account.entries || []).length})</span>
+              <span>📋 All Account Ledger Entries ({(account.entries || []).length})</span>
             </button>
           </div>
         )}
@@ -7447,7 +7402,7 @@ function StayAccountModal({
           </div>
         )}
 
-        {/* TAB 2: FOLIO LEDGER ENTRIES */}
+        {/* TAB 2: ACCOUNT LEDGER ENTRIES */}
         {(activeTab === 'entries' || !hasInstallments) && (
           <div>
             <div className="tablewrap">
@@ -7503,7 +7458,7 @@ function StayAccountModal({
         <footer>
           <button type="button" className="secondary" onClick={handlePrint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Printer size={15} />
-            <span>Print Folio Statement</span>
+            <span>Print Account Statement</span>
           </button>
           <button type="button" className="secondary" onClick={onClose}>
             Close
@@ -8974,11 +8929,11 @@ function StayExtensionModal({ unit, reservation, property, onClose, onExtended }
               <strong style={{ fontSize: 14, color: '#166534' }}>{addedNights} additional night{addedNights > 1 ? 's' : ''}</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: '#166534' }}>Additional Folio Charge:</span>
+              <span style={{ fontSize: 13, color: '#166534' }}>Additional Stay Charge:</span>
               <strong style={{ fontSize: 16, color: '#15803d' }}>+{formatMoney(addedCharge, property?.currency)}</strong>
             </div>
             <small style={{ color: '#15803d', display: 'block', marginTop: 4, fontSize: 11 }}>
-              * Automatically posted to guest's stay account folio.
+              * Automatically posted to guest's stay account.
             </small>
           </div>
 
@@ -11493,8 +11448,8 @@ function ReportsView({ data, property }) {
         <section className="panel space">
           <div className="panelheading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2>Historical Stays &amp; Guest Folios</h2>
-              <p className="muted">Complete record of every guest check-in, duration, rate applied, billed charges, and folio settlement.</p>
+              <h2>Historical Stays &amp; Guest Accounts</h2>
+              <p className="muted">Complete record of every guest check-in, duration, rate applied, billed charges, and account settlement.</p>
             </div>
             <span style={{ fontSize: 12, color: '#64748b' }}>
               {filteredReservations.length} Stays Found
