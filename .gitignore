@@ -1,0 +1,4 @@
+api/config.php
+php.ini
+cgi-bin/
+*.zip
