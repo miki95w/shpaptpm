@@ -15,7 +15,7 @@ $action = $_GET['action'] ?? '';
 if ($method === 'GET' || $action === 'me') {
     $user = getCurrentUser();
     if (!$user) {
-        jsonError('Please sign in', 401);
+        jsonError('Please sign in (session not found or expired)', 401);
     }
 
     try {
@@ -74,7 +74,7 @@ if ($method === 'POST' && ($action === 'login' || empty($action))) {
         $passwordMatches = password_verify($password, $user['password_hash']);
         if (!$passwordMatches) {
             // Fallback for initial admin account setup
-            if ($password === 'admin123' && ($email === 'admin@gmail.com' || empty($user['password_hash']))) {
+            if ($password === 'admin123' && (strtolower($email) === 'admin@gmail.com' || empty($user['password_hash']))) {
                 $passwordMatches = true;
             }
         }
@@ -94,6 +94,8 @@ if ($method === 'POST' && ($action === 'login' || empty($action))) {
             'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
             'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? ''
         ]);
+
+        session_write_close();
 
         jsonResponse(['ok' => true], 201);
     } catch (Exception $e) {
