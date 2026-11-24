@@ -290,6 +290,54 @@ try {
         jsonResponse(['ok' => true, 'id' => $itemId], 201);
     }
 
+    // 4. PATCH/PUT /api/inventory/items/:id -> Edit catalog item (Admin or Manager)
+    if ($action === 'items' && !empty($parts[1]) && ($method === 'PATCH' || $method === 'PUT')) {
+        requireAdminOrManager($db, $user);
+        $itemId = $parts[1];
+
+        $stmt = $db->prepare("SELECT * FROM inventory_items WHERE id = ?");
+        $stmt->execute([$itemId]);
+        $existing = $stmt->fetch();
+        if (!$existing) {
+            jsonError('Inventory item not found', 404);
+        }
+
+        $name = trim($input['name'] ?? $existing['name']);
+        $kind = in_array($input['kind'] ?? '', ['consumable', 'durable']) ? $input['kind'] : $existing['kind'];
+        $unit = trim($input['unit'] ?? $existing['unit']);
+        $price = isset($input['replacementPrice']) ? floatval($input['replacementPrice']) : floatval($existing['replacement_price']);
+
+        if (empty($name)) {
+            jsonError('Item name is required', 400);
+        }
+
+        $db->prepare("UPDATE inventory_items SET name = ?, kind = ?, unit = ?, replacement_price = ? WHERE id = ?")
+           ->execute([$name, $kind, $unit, $price, $itemId]);
+
+        logAudit($existing['property_id'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'inventory.item_updated', $user['name'], ['itemId' => $itemId, 'name' => $name, 'kind' => $kind]);
+        jsonResponse(['ok' => true]);
+    }
+
+    // 5. DELETE /api/inventory/items/:id -> Delete catalog item (Admin or Manager)
+    if ($action === 'items' && !empty($parts[1]) && $method === 'DELETE') {
+        requireAdminOrManager($db, $user);
+        $itemId = $parts[1];
+
+        $stmt = $db->prepare("SELECT * FROM inventory_items WHERE id = ?");
+        $stmt->execute([$itemId]);
+        $existing = $stmt->fetch();
+        if (!$existing) {
+            jsonError('Inventory item not found', 404);
+        }
+
+        $db->prepare("DELETE FROM inventory_movements WHERE item_id = ?")->execute([$itemId]);
+        $db->prepare("DELETE FROM inventory_stock WHERE item_id = ?")->execute([$itemId]);
+        $db->prepare("DELETE FROM inventory_items WHERE id = ?")->execute([$itemId]);
+
+        logAudit($existing['property_id'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'inventory.item_deleted', $user['name'], ['itemId' => $itemId, 'name' => $existing['name']]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported inventory endpoint', 400);
 
 } catch (Exception $e) {

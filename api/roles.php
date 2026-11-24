@@ -58,6 +58,18 @@ try {
         jsonResponse(['ok' => true, 'id' => $id], 201);
     }
 
+    // 3. DELETE /api/roles/:id -> Delete custom role (Admin only)
+    if ($method === 'DELETE' && !empty($roleId)) {
+        requireAdmin($db, $user);
+        if ($roleId === 'def28ddb-4a03-44a2-a540-cf49c8ffea1c') {
+            jsonError('Cannot delete the built-in Administrator role.', 400);
+        }
+        $db->prepare("DELETE FROM role_permissions WHERE role_id = ?")->execute([$roleId]);
+        $db->prepare("DELETE FROM roles WHERE id = ?")->execute([$roleId]);
+        logAudit('db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'role.deleted', $user['name'], ['roleId' => $roleId]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported role action', 400);
 
 } catch (Exception $e) {

@@ -12,6 +12,29 @@ $propertyId = $_GET['propertyId'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c';
 try {
     $db = getDB();
 
+    // Handle DELETE /api/employees/:id, /api/expenses/:id, /api/utilities/:id (Admin only)
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        requireAdmin($db, $user);
+        $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $reqPath = preg_replace('#^/api/?#', '', $reqPath);
+        $seg = array_values(array_filter(explode('/', trim($reqPath, '/'))));
+        $resType = strtolower($seg[0] ?? '');
+        $recId = $seg[1] ?? '';
+
+        if (!empty($recId) && in_array($resType, ['employees', 'expenses', 'utilities'], true)) {
+            $tableMap = [
+                'employees' => 'employees',
+                'expenses' => 'expenses',
+                'utilities' => 'utilities'
+            ];
+            $tbl = $tableMap[$resType];
+            $db->prepare("DELETE FROM {$tbl} WHERE id = ?")->execute([$recId]);
+            logAudit($propertyId, "{$resType}.deleted", $user['name'], ['id' => $recId]);
+            jsonResponse(['ok' => true]);
+        }
+        jsonError('Unsupported delete target', 400);
+    }
+
     // Handle POST /api/data actions (e.g. create_unit)
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $input = getJsonInput();

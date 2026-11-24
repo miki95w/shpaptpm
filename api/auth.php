@@ -32,12 +32,15 @@ if ($method === 'GET' || $action === 'me') {
         $permStmt->execute([$user['role_id']]);
         $permissions = $permStmt->fetchAll(PDO::FETCH_COLUMN);
 
+        $roleName = getUserRoleName($db, $user);
+
         jsonResponse([
             'user' => [
                 'id' => $user['id'],
                 'name' => $user['name'],
                 'email' => $user['email'],
                 'role' => $user['role_id'],
+                'roleName' => $roleName,
                 'permissions' => $permissions
             ],
             'properties' => $properties

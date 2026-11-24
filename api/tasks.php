@@ -81,6 +81,20 @@ try {
         jsonResponse(['ok' => true, 'id' => $id], 201);
     }
 
+    // 3. DELETE /api/tasks/:id -> Delete housekeeping task (Admin only)
+    if ($method === 'DELETE' && !empty($taskId)) {
+        requireAdmin($db, $user);
+        $stmt = $db->prepare("SELECT * FROM housekeeping_tasks WHERE id = ?");
+        $stmt->execute([$taskId]);
+        $task = $stmt->fetch();
+        if (!$task) {
+            jsonError('Task not found', 404);
+        }
+        $db->prepare("DELETE FROM housekeeping_tasks WHERE id = ?")->execute([$taskId]);
+        logAudit($task['property_id'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'housekeeping.deleted', $user['name'], ['taskId' => $taskId]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported task action', 400);
 
 } catch (Exception $e) {
