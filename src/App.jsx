@@ -279,6 +279,184 @@ function Pagination({
   );
 }
 
+// Reusable Typeable & Searchable Dropdown Component
+function SearchableSelect({
+  value,
+  onChange,
+  options = [],
+  placeholder = 'Type to search or choose…',
+  required = false,
+  allowCustom = false,
+  disabled = false
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const wrapRef = useRef(null);
+
+  const normalizedOptions = useMemo(
+    () => (options || []).map(o => ({
+      value: String(o.value ?? ''),
+      label: String(o.label ?? o.value ?? ''),
+      sublabel: o.sublabel ? String(o.sublabel) : ''
+    })),
+    [options]
+  );
+
+  const selectedOption = normalizedOptions.find(o => o.value === String(value ?? ''));
+  const displayValue = open
+    ? query
+    : (selectedOption ? selectedOption.label : (allowCustom && value ? String(value) : ''));
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return normalizedOptions;
+    return normalizedOptions.filter(
+      o => o.label.toLowerCase().includes(q) || o.sublabel.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+    );
+  }, [normalizedOptions, query]);
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setOpen(false);
+        setQuery('');
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  useEffect(() => {
+    setHighlightIdx(0);
+  }, [query, open]);
+
+  const selectValue = val => {
+    onChange(val);
+    setOpen(false);
+    setQuery('');
+  };
+
+  const handleKeyDown = e => {
+    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter')) {
+      setOpen(true);
+      return;
+    }
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIdx(i => Math.min(i + 1, Math.max(0, filtered.length - 1)));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIdx(i => Math.max(0, i - 1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filtered[highlightIdx]) {
+        selectValue(filtered[highlightIdx].value);
+      } else if (allowCustom && query.trim()) {
+        selectValue(query.trim());
+      }
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+      setQuery('');
+    }
+  };
+
+  return (
+    <div className="searchable-select-wrap" ref={wrapRef}>
+      <div className="searchable-select-input-box">
+        <input
+          type="text"
+          className="searchable-select-input"
+          value={displayValue}
+          placeholder={selectedOption ? selectedOption.label : placeholder}
+          disabled={disabled}
+          onFocus={() => {
+            setQuery('');
+            setOpen(true);
+          }}
+          onChange={e => {
+            const txt = e.target.value;
+            setQuery(txt);
+            setOpen(true);
+            if (allowCustom) {
+              onChange(txt);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          className="searchable-select-chevron"
+          onClick={() => {
+            if (disabled) return;
+            setQuery('');
+            setOpen(prev => !prev);
+          }}
+          aria-label="Toggle options"
+        >
+          <ChevronDown size={15} />
+        </button>
+      </div>
+
+      {required && (
+        <input
+          tabIndex={-1}
+          aria-hidden="true"
+          required
+          value={value || ''}
+          onChange={() => {}}
+          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, width: 0 }}
+        />
+      )}
+
+      {open && !disabled && (
+        <div className="searchable-select-menu">
+          {filtered.map((opt, idx) => {
+            const isSel = opt.value === String(value ?? '');
+            return (
+              <button
+                key={`${opt.value}-${idx}`}
+                type="button"
+                className={`searchable-select-option ${isSel ? 'selected' : ''} ${idx === highlightIdx ? 'highlighted' : ''}`}
+                onMouseDown={e => {
+                  e.preventDefault();
+                  selectValue(opt.value);
+                }}
+              >
+                <div style={{ flex: 1, textAlign: 'left' }}>
+                  <div>{opt.label}</div>
+                  {opt.sublabel && <small className="muted">{opt.sublabel}</small>}
+                </div>
+                {isSel && <Check size={14} color="#1d4ed8" />}
+              </button>
+            );
+          })}
+
+          {allowCustom && query.trim() && !filtered.some(o => o.label.toLowerCase() === query.trim().toLowerCase()) && (
+            <button
+              type="button"
+              className="searchable-select-option custom-add"
+              onMouseDown={e => {
+                e.preventDefault();
+                selectValue(query.trim());
+              }}
+            >
+              <span>Use "{query.trim()}"</span>
+            </button>
+          )}
+
+          {filtered.length === 0 && !allowCustom && (
+            <div className="searchable-select-empty">No matching options</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const APARTMENT_IMAGES = {
   one: { src: '/images/solta/one-bedroom/onebed-5.webp', label: 'One-bedroom' },
   two: { src: '/images/solta/two-bedroom/twobed-4.webp', label: 'Two-bedroom' },
@@ -424,6 +602,23 @@ export default function App() {
     if (!currentUser || !currentUser.permissions) return true;
     return currentUser.permissions.includes(permCode);
   }
+
+  const isAdmin = Boolean(
+    currentUser && (
+      currentUser.role === 'def28ddb-4a03-44a2-a540-cf49c8ffea1c' ||
+      (currentUser.roleName || '').toLowerCase().includes('admin') ||
+      (currentUser.email || '').toLowerCase() === 'admin@gmail.com'
+    )
+  );
+
+  const isManagerOrAdmin = Boolean(
+    isAdmin || (
+      currentUser && (
+        currentUser.role === 'role-manager' ||
+        (currentUser.roleName || '').toLowerCase().includes('manager')
+      )
+    )
+  );
 
   const currentProperty = properties.find(p => p.id === propertyId) || {
     name: 'Solta Hotel Apartment',
@@ -880,6 +1075,8 @@ export default function App() {
               onAddUnit={() => openAddUnitDialog()}
               onSelectUnit={unit => setSelectedUnit(unit)}
               onOpenExtension={(unit, res) => setExtensionModalData({ unit, reservation: res })}
+              onDeleteUnit={unit => handleDeleteUnit(unit)}
+              isAdmin={isAdmin}
               refreshData={loadData}
               showToast={showToast}
             />
@@ -901,6 +1098,8 @@ export default function App() {
               onCancel={res => handleCancel(res)}
               onApprove={res => handleApproveBooking(res)}
               onReject={res => handleRejectBooking(res)}
+              onDeleteReservation={res => handleDeleteReservation(res)}
+              isAdmin={isAdmin}
               onOpenStayAccount={res => {
                 const acc = (data?.accounts || []).find(a => a.reservation_id === res.id);
                 if (acc) setSelectedStayAccount(acc);
@@ -932,6 +1131,8 @@ export default function App() {
               accounts={data?.accounts || []}
               property={currentProperty}
               onOpenStayAccount={acc => setSelectedStayAccount(acc)}
+              onDeleteAccount={acc => handleDeleteReservation({ id: acc.reservation_id, reference: acc.reference, guest_name: acc.guest_name })}
+              isAdmin={isAdmin}
             />
           )}
 
@@ -943,6 +1144,8 @@ export default function App() {
               onReceiveStock={() => openReceiveStockDialog()}
               onIssueCleaner={() => openIssueCleanerDialog()}
               onAddItem={() => openAddItemDialog()}
+              isAdmin={isAdmin}
+              isManagerOrAdmin={isManagerOrAdmin}
               refreshData={loadData}
               showToast={showToast}
             />
@@ -957,6 +1160,8 @@ export default function App() {
               property={currentProperty}
               onNewTask={() => openNewTaskDialog()}
               onCompleteTask={taskId => handleCompleteTask(taskId)}
+              onDeleteTask={taskId => handleDeleteTask(taskId)}
+              isAdmin={isAdmin}
             />
           )}
 
@@ -967,6 +1172,7 @@ export default function App() {
               property={currentProperty}
               subTab={mgmtSubTab}
               setSubTab={setMgmtSubTab}
+              isAdmin={isAdmin}
               onAddEmployee={() => setEmployeeModalData({ mode: 'create', initial: {} })}
               onEditEmployee={emp => setEmployeeModalData({ mode: 'edit', initial: emp })}
               onViewEmployee={emp => setSelectedEmployee(emp)}
@@ -997,6 +1203,9 @@ export default function App() {
               onTogglePermission={(code, enabled) => handleTogglePermission(code, enabled)}
               onAddStaff={() => openAddStaffDialog()}
               onAddRole={() => openAddRoleDialog()}
+              onDeleteStaff={s => handleDeleteStaff(s)}
+              onDeleteRole={r => handleDeleteRole(r)}
+              isAdmin={isAdmin}
               onTogglePaymentMethod={(id, active) => handleTogglePaymentMethod(id, active)}
               approverConfig={approverConfig || data?.approverConfig}
               onSaveApproverConfig={handleSaveApproverConfig}
@@ -1594,6 +1803,67 @@ export default function App() {
     } catch (err) {
       showToast(err.message, 'error');
       throw err;
+    }
+  }
+
+  async function handleDeleteUnit(unit) {
+    if (!isAdmin) return showToast('Only Administrators can delete records');
+    if (!window.confirm(`Delete apartment ${unit.code}? This cannot be undone.`)) return;
+    try {
+      await apiCall(`/units/${unit.id}`, 'DELETE');
+      showToast(`Apartment ${unit.code} deleted`);
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Unable to delete apartment');
+    }
+  }
+
+  async function handleDeleteReservation(res) {
+    if (!isAdmin) return showToast('Only Administrators can delete records');
+    if (!res?.id) return;
+    if (!window.confirm(`Delete booking ${res.reference || ''} (${res.guest_name || 'Guest'}) and its stay account?`)) return;
+    try {
+      await apiCall(`/reservations/${res.id}`, 'DELETE');
+      showToast('Booking & stay account deleted');
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Unable to delete booking');
+    }
+  }
+
+  async function handleDeleteTask(taskId) {
+    if (!isAdmin) return showToast('Only Administrators can delete records');
+    if (!window.confirm('Delete this housekeeping task?')) return;
+    try {
+      await apiCall(`/tasks/${taskId}`, 'DELETE');
+      showToast('Housekeeping task deleted');
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Unable to delete task');
+    }
+  }
+
+  async function handleDeleteStaff(staffMember) {
+    if (!isAdmin) return showToast('Only Administrators can delete records');
+    if (!window.confirm(`Delete staff account for ${staffMember.name}?`)) return;
+    try {
+      await apiCall(`/users/${staffMember.id}`, 'DELETE');
+      showToast('Staff account deleted');
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Unable to delete staff account');
+    }
+  }
+
+  async function handleDeleteRole(role) {
+    if (!isAdmin) return showToast('Only Administrators can delete records');
+    if (!window.confirm(`Delete role "${role.name}"?`)) return;
+    try {
+      await apiCall(`/roles/${role.id}`, 'DELETE');
+      showToast('Role deleted');
+      loadData();
+    } catch (err) {
+      showToast(err.message || 'Unable to delete role');
     }
   }
 
@@ -2271,6 +2541,8 @@ function ApartmentsView({
   onAddUnit,
   onSelectUnit,
   onOpenExtension,
+  onDeleteUnit,
+  isAdmin = false,
   refreshData,
   showToast
 }) {
@@ -2632,6 +2904,20 @@ function ApartmentsView({
                           <span>Specs</span>
                           <ArrowUpRight size={14} />
                         </small>
+                        {isAdmin && onDeleteUnit && !unit.occupied && (
+                          <button
+                            type="button"
+                            className="small secondary"
+                            style={{ color: '#b91c1c', padding: '4px 7px' }}
+                            title={`Delete ${unit.code}`}
+                            onClick={e => {
+                              e.stopPropagation();
+                              onDeleteUnit(unit);
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2909,11 +3195,13 @@ function SetMaintenanceModal({ unit, property, onClose, onSuccess }) {
           <div className="inventory-modal-body">
             <div className="field">
               <label>Maintenance Issue / Reason</label>
-              <select value={reason} onChange={e => setReason(e.target.value)}>
-                {presetReasons.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={reason}
+                allowCustom
+                placeholder="Type or select maintenance reason…"
+                options={presetReasons.map(r => ({ value: r, label: r }))}
+                onChange={setReason}
+              />
             </div>
 
             {reason === 'Custom / Other issue...' && (
@@ -3016,6 +3304,8 @@ function BookingsView({
   onCancel,
   onApprove,
   onReject,
+  onDeleteReservation,
+  isAdmin = false,
   onOpenStayAccount
 }) {
   const [page, setPage] = useState(1);
@@ -3199,6 +3489,16 @@ function BookingsView({
                               Extend
                             </button>
                           </>
+                        )}
+                        {isAdmin && onDeleteReservation && (
+                          <button
+                            className="small secondary"
+                            style={{ color: '#b91c1c' }}
+                            title="Delete booking (Admin only)"
+                            onClick={() => onDeleteReservation(res)}
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -4143,7 +4443,7 @@ function FinanceView({
 }
 
 // 5. Stay Accounts View
-function StayAccountsView({ accounts, property, onOpenStayAccount }) {
+function StayAccountsView({ accounts, property, onOpenStayAccount, onDeleteAccount, isAdmin = false }) {
   const [stayPage, setStayPage] = useState(1);
   const accountList = accounts || [];
   const pagedAccounts = accountList.slice((stayPage - 1) * 15, stayPage * 15);
@@ -4178,9 +4478,21 @@ function StayAccountsView({ accounts, property, onOpenStayAccount }) {
                   <td>{formatMoney(acc.balance, property.currency)}</td>
                   <td>{formatMoney(acc.deposit, property.currency)}</td>
                   <td>
-                    <button className="small secondary" onClick={() => onOpenStayAccount(acc)}>
-                      Open ledger
-                    </button>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button className="small secondary" onClick={() => onOpenStayAccount(acc)}>
+                        Open ledger
+                      </button>
+                      {isAdmin && onDeleteAccount && (
+                        <button
+                          className="small secondary"
+                          style={{ color: '#b91c1c' }}
+                          title="Delete stay account (Admin only)"
+                          onClick={() => onDeleteAccount(acc)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -4214,6 +4526,8 @@ function InventoryView({
   onReceiveStock,
   onIssueCleaner,
   onAddItem,
+  isAdmin = false,
+  isManagerOrAdmin = false,
   refreshData,
   showToast
 }) {
@@ -4341,7 +4655,28 @@ function InventoryView({
   };
 
   const handleOpenAdd = () => {
+    setModalItem(null);
     setActiveModal('add');
+  };
+
+  const handleOpenEditItem = item => {
+    setModalItem(item);
+    setActiveModal('edit');
+  };
+
+  const handleDeleteInventoryItem = async item => {
+    if (!isManagerOrAdmin) {
+      showToast && showToast('Only Managers or Administrators can delete inventory items');
+      return;
+    }
+    if (!window.confirm(`Delete inventory item "${item.name}" and its stock records?`)) return;
+    try {
+      await apiCall(`/inventory/items/${item.id}`, 'DELETE');
+      showToast && showToast(`Deleted inventory item: ${item.name}`);
+      refreshData && refreshData();
+    } catch (err) {
+      showToast && showToast(err.message || 'Unable to delete item');
+    }
   };
 
   const handleOpenChecklist = (unit = null) => {
@@ -4691,6 +5026,27 @@ function InventoryView({
                           >
                             Supply
                           </button>
+                          {isManagerOrAdmin && (
+                            <>
+                              <button
+                                type="button"
+                                className="small secondary"
+                                onClick={() => handleOpenEditItem(item)}
+                                title="Edit inventory item (Manager/Admin)"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="small secondary"
+                                style={{ color: '#b91c1c' }}
+                                onClick={() => handleDeleteInventoryItem(item)}
+                                title="Delete inventory item (Manager/Admin)"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -5097,16 +5453,22 @@ function InventoryView({
         />
       )}
 
-      {/* 6. ADD CATALOG ITEM MODAL */}
-      {activeModal === 'add' && (
+      {/* 6. ADD / EDIT CATALOG ITEM MODAL */}
+      {(activeModal === 'add' || activeModal === 'edit') && (
         <AddCatalogItemModal
           categories={categories.filter(c => c !== 'All')}
+          initialItem={activeModal === 'edit' ? modalItem : null}
           property={property}
           onClose={() => setActiveModal(null)}
           onSuccess={async values => {
             try {
-              await apiCall('/inventory/items', 'POST', { ...values, propertyId: property.id });
-              showToast && showToast(`Added new catalog item: ${values.name}`);
+              if (activeModal === 'edit' && modalItem) {
+                await apiCall(`/inventory/items/${modalItem.id}`, 'PATCH', { ...values, propertyId: property.id });
+                showToast && showToast(`Updated inventory item: ${values.name}`);
+              } else {
+                await apiCall('/inventory/items', 'POST', { ...values, propertyId: property.id });
+                showToast && showToast(`Added new catalog item: ${values.name}`);
+              }
               setActiveModal(null);
               refreshData && refreshData();
             } catch (err) {
@@ -5176,13 +5538,16 @@ function ReceiveStockModal({ items, preselectedItem, property, onClose, onSucces
           <div className="inventory-modal-body">
             <div className="field">
               <label>Select Item to Receive</label>
-              <select value={itemId} onChange={e => setItemId(e.target.value)} required>
-                {items.map(it => (
-                  <option key={it.id} value={it.id}>
-                    {it.name} ({it.kind}) · counted in {it.unit}s
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={itemId}
+                required
+                placeholder="Type to search item…"
+                options={items.map(it => ({
+                  value: it.id,
+                  label: `${it.name} (${it.kind}) · counted in ${it.unit}s`
+                }))}
+                onChange={setItemId}
+              />
             </div>
 
             <div className="field">
@@ -5287,13 +5652,13 @@ function IssueCleanerModal({ items, stock, staff, preselectedItem, property, onC
 
             <div className="field">
               <label>Select Item to Issue</label>
-              <select value={itemId} onChange={e => setItemId(e.target.value)} required>
-                {items.map(it => (
-                  <option key={it.id} value={it.id}>
-                    {it.name} ({it.kind})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={itemId}
+                required
+                placeholder="Type to search item…"
+                options={items.map(it => ({ value: it.id, label: `${it.name} (${it.kind})` }))}
+                onChange={setItemId}
+              />
               <small className="muted" style={{ display: 'block', marginTop: 4 }}>
                 Available in Central Store: <strong style={{ color: storeStock > 0 ? '#15803d' : '#dc2626' }}>{storeStock} {selectedItemObj?.unit || 'pieces'}</strong>
               </small>
@@ -5301,13 +5666,13 @@ function IssueCleanerModal({ items, stock, staff, preselectedItem, property, onC
 
             <div className="field">
               <label>Assign to Cleaner / Staff</label>
-              <select value={cleanerId} onChange={e => setCleanerId(e.target.value)} required>
-                {staff.map(st => (
-                  <option key={st.id} value={st.id}>
-                    {st.name} ({st.role || 'Staff'})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={cleanerId}
+                required
+                placeholder="Type staff name…"
+                options={staff.map(st => ({ value: st.id, label: `${st.name} (${st.role || 'Staff'})` }))}
+                onChange={setCleanerId}
+              />
             </div>
 
             <div className="field">
@@ -5414,13 +5779,16 @@ function SupplyApartmentModal({ items, units, stock, preselectedItem, preselecte
 
             <div className="field">
               <label>Target Apartment</label>
-              <select value={unitId} onChange={e => setUnitId(e.target.value)} required>
-                {units.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.code} ({u.category}) · {u.occupied ? 'Occupied' : u.readiness}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={unitId}
+                required
+                placeholder="Type apartment code…"
+                options={units.map(u => ({
+                  value: u.id,
+                  label: `${u.code} (${u.category}) · ${u.occupied ? 'Occupied' : u.readiness}`
+                }))}
+                onChange={setUnitId}
+              />
             </div>
 
             <div className="field">
@@ -5449,13 +5817,13 @@ function SupplyApartmentModal({ items, units, stock, preselectedItem, preselecte
 
             <div className="field">
               <label>Item to Supply</label>
-              <select value={itemId} onChange={e => setItemId(e.target.value)} required>
-                {items.map(it => (
-                  <option key={it.id} value={it.id}>
-                    {it.name} ({it.kind})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={itemId}
+                required
+                placeholder="Type to search item…"
+                options={items.map(it => ({ value: it.id, label: `${it.name} (${it.kind})` }))}
+                onChange={setItemId}
+              />
               <small className="muted" style={{ display: 'block', marginTop: 4 }}>
                 Available at source: <strong style={{ color: availableStock > 0 ? '#15803d' : '#dc2626' }}>{availableStock} {selectedItemObj?.unit || 'pieces'}</strong>
               </small>
@@ -5553,20 +5921,24 @@ function ReturnStoreModal({ items, locations, stock, property, onClose, onSucces
           <div className="inventory-modal-body">
             <div className="field">
               <label>Returning From</label>
-              <select value={fromLocationId} onChange={e => setFromLocationId(e.target.value)} required>
-                {returnableLocations.map(l => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={fromLocationId}
+                required
+                placeholder="Type location name…"
+                options={returnableLocations.map(l => ({ value: l.id, label: l.name }))}
+                onChange={setFromLocationId}
+              />
             </div>
 
             <div className="field">
               <label>Item to Return</label>
-              <select value={itemId} onChange={e => setItemId(e.target.value)} required>
-                {items.map(it => (
-                  <option key={it.id} value={it.id}>{it.name} ({it.unit})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={itemId}
+                required
+                placeholder="Type to search item…"
+                options={items.map(it => ({ value: it.id, label: `${it.name} (${it.unit})` }))}
+                onChange={setItemId}
+              />
               <small className="muted" style={{ display: 'block', marginTop: 4 }}>
                 Held at {selectedLoc?.name || 'source'}: <strong>{locStock} {selectedItemObj?.unit || 'pieces'}</strong>
               </small>
@@ -5585,12 +5957,18 @@ function ReturnStoreModal({ items, locations, stock, property, onClose, onSucces
 
             <div className="field">
               <label>Condition / Reason</label>
-              <select value={reason} onChange={e => setReason(e.target.value)}>
-                <option value="Surplus stock returned clean">Clean &amp; Unused Surplus</option>
-                <option value="Soiled linens returned for laundry">Soiled / Sent to Laundry</option>
-                <option value="Room reallocation / inspection">Room Reallocation</option>
-                <option value="Defective / Damaged item replaced">Damaged / Defective Replacement</option>
-              </select>
+              <SearchableSelect
+                value={reason}
+                allowCustom
+                placeholder="Type or choose reason…"
+                options={[
+                  { value: 'Surplus stock returned clean', label: 'Clean & Unused Surplus' },
+                  { value: 'Soiled linens returned for laundry', label: 'Soiled / Sent to Laundry' },
+                  { value: 'Room reallocation / inspection', label: 'Room Reallocation' },
+                  { value: 'Defective / Damaged item replaced', label: 'Damaged / Defective Replacement' }
+                ]}
+                onChange={setReason}
+              />
             </div>
           </div>
 
@@ -5652,24 +6030,27 @@ function PlaceDurableModal({ items, units, stock, preselectedUnit, property, onC
           <div className="inventory-modal-body">
             <div className="field">
               <label>Target Apartment</label>
-              <select value={unitId} onChange={e => setUnitId(e.target.value)} required>
-                {units.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.code} ({u.category})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={unitId}
+                required
+                placeholder="Type apartment code…"
+                options={units.map(u => ({ value: u.id, label: `${u.code} (${u.category})` }))}
+                onChange={setUnitId}
+              />
             </div>
 
             <div className="field">
               <label>Select Durable Asset</label>
-              <select value={itemId} onChange={e => setItemId(e.target.value)} required>
-                {items.map(it => (
-                  <option key={it.id} value={it.id}>
-                    {it.name} (Valued: {formatMoney(it.replacement_price, property.currency)})
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={itemId}
+                required
+                placeholder="Type durable asset name…"
+                options={items.map(it => ({
+                  value: it.id,
+                  label: `${it.name} (Valued: ${formatMoney(it.replacement_price, property.currency)})`
+                }))}
+                onChange={setItemId}
+              />
               <small className="muted" style={{ display: 'block', marginTop: 4 }}>
                 Units in reserve at Central Store: <strong style={{ color: storeStock > 0 ? '#15803d' : '#dc2626' }}>{storeStock}</strong>
               </small>
@@ -5718,13 +6099,14 @@ function PlaceDurableModal({ items, units, stock, preselectedUnit, property, onC
   );
 }
 
-function AddCatalogItemModal({ categories, property, onClose, onSuccess }) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState(categories[0] || 'Toiletries & Amenities');
-  const [kind, setKind] = useState('consumable'); // 'consumable' or 'durable'
-  const [unit, setUnit] = useState('piece');
-  const [minStock, setMinStock] = useState(25);
-  const [replacementPrice, setReplacementPrice] = useState(0);
+function AddCatalogItemModal({ categories, initialItem = null, property, onClose, onSuccess }) {
+  const isEdit = Boolean(initialItem);
+  const [name, setName] = useState(initialItem?.name || '');
+  const [category, setCategory] = useState(initialItem?.category || categories[0] || 'Toiletries & Amenities');
+  const [kind, setKind] = useState(initialItem?.kind || 'consumable'); // 'consumable' or 'durable'
+  const [unit, setUnit] = useState(initialItem?.unit || 'piece');
+  const [minStock, setMinStock] = useState(initialItem?.min_stock ?? 25);
+  const [replacementPrice, setReplacementPrice] = useState(initialItem?.replacement_price ?? 0);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async e => {
@@ -5747,9 +6129,9 @@ function AddCatalogItemModal({ categories, property, onClose, onSuccess }) {
       <div className="modal dialog-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
         <div className="modalhead">
           <div>
-            <h3>Add Inventory Catalog Item</h3>
+            <h3>{isEdit ? 'Edit Inventory Catalog Item' : 'Add Inventory Catalog Item'}</h3>
             <p className="muted" style={{ margin: '2px 0 0', fontSize: 13 }}>
-              Define a new trackable item, consumable amenity, or capital asset.
+              {isEdit ? 'Update item name, classification, unit of measure, or replacement price.' : 'Define a new trackable item, consumable amenity, or capital asset.'}
             </p>
           </div>
           <button className="icon" onClick={onClose}><X size={18} /></button>
@@ -5800,26 +6182,25 @@ function AddCatalogItemModal({ categories, property, onClose, onSuccess }) {
 
             <div className="field">
               <label>Category</label>
-              <select value={category} onChange={e => setCategory(e.target.value)}>
-                {categories.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={category}
+                allowCustom
+                placeholder="Type or select category…"
+                options={categories.map(c => ({ value: c, label: c }))}
+                onChange={setCategory}
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div className="field">
                 <label>Unit of Measure</label>
-                <select value={unit} onChange={e => setUnit(e.target.value)}>
-                  <option value="piece">piece</option>
-                  <option value="bar">bar</option>
-                  <option value="roll">roll</option>
-                  <option value="bottle">bottle</option>
-                  <option value="set">set</option>
-                  <option value="pack">pack</option>
-                  <option value="unit">unit</option>
-                  <option value="canister">canister</option>
-                </select>
+                <SearchableSelect
+                  value={unit}
+                  allowCustom
+                  placeholder="Type or select unit…"
+                  options={['piece', 'bar', 'roll', 'bottle', 'set', 'pack', 'unit', 'canister'].map(u => ({ value: u, label: u }))}
+                  onChange={setUnit}
+                />
               </div>
 
               <div className="field">
@@ -5852,7 +6233,7 @@ function AddCatalogItemModal({ categories, property, onClose, onSuccess }) {
           <div className="modalfoot" style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
             <button type="submit" disabled={loading} style={{ background: '#0052cc', color: '#fff' }}>
-              {loading ? 'Creating...' : 'Create Catalog Item'}
+              {loading ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Item Changes' : 'Create Catalog Item')}
             </button>
           </div>
         </form>
@@ -5979,7 +6360,7 @@ function ApartmentChecklistModal({ units, stock, items, preselectedUnit, propert
 }
 
 // 7. Housekeeping View
-function HousekeepingView({ tasks, units, staff, property, onNewTask, onCompleteTask }) {
+function HousekeepingView({ tasks, units, staff, property, onNewTask, onCompleteTask, onDeleteTask, isAdmin = false }) {
   const [tasksPage, setTasksPage] = useState(1);
   const taskList = tasks || [];
   const pagedTasks = taskList.slice((tasksPage - 1) * 15, tasksPage * 15);
@@ -6018,6 +6399,16 @@ function HousekeepingView({ tasks, units, staff, property, onNewTask, onComplete
                 {task.status !== 'completed' && (
                   <button className="small" onClick={() => onCompleteTask(task.id)}>
                     Mark ready
+                  </button>
+                )}
+                {isAdmin && onDeleteTask && (
+                  <button
+                    className="small secondary"
+                    style={{ color: '#b91c1c' }}
+                    title="Delete task (Admin only)"
+                    onClick={() => onDeleteTask(task.id)}
+                  >
+                    <Trash2 size={13} />
                   </button>
                 )}
               </div>
@@ -6228,6 +6619,9 @@ function AccessRolesView({
   onTogglePermission,
   onAddStaff,
   onAddRole,
+  onDeleteStaff,
+  onDeleteRole,
+  isAdmin = false,
   onTogglePaymentMethod,
   approverConfig,
   onSaveApproverConfig,
@@ -6499,6 +6893,20 @@ function AccessRolesView({
               ))}
             </select>
             <button className="secondary small" onClick={onAddRole}>New role</button>
+            {isAdmin && onDeleteRole && selectedRole && selectedRole !== 'def28ddb-4a03-44a2-a540-cf49c8ffea1c' && (
+              <button
+                type="button"
+                className="secondary small"
+                style={{ color: '#b91c1c' }}
+                title="Delete selected role (Admin only)"
+                onClick={() => {
+                  const r = roles.find(x => x.id === selectedRole);
+                  if (r) onDeleteRole(r);
+                }}
+              >
+                <Trash2 size={13} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -6541,6 +6949,7 @@ function AccessRolesView({
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                {isAdmin && <th style={{ textAlign: 'right' }}>Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -6551,6 +6960,21 @@ function AccessRolesView({
                   <td>
                     <span className="badge">{s.role || 'Staff'}</span>
                   </td>
+                  {isAdmin && (
+                    <td style={{ textAlign: 'right' }}>
+                      {onDeleteStaff && (
+                        <button
+                          type="button"
+                          className="secondary small"
+                          style={{ color: '#b91c1c' }}
+                          title={`Delete ${s.name} (Admin only)`}
+                          onClick={() => onDeleteStaff(s)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -6676,16 +7100,14 @@ function GenericDialog({ dialog, onClose, onSuccess }) {
               <label key={f.name} className="field">
                 <span>{f.label}</span>
                 {f.type === 'select' ? (
-                  <select
+                  <SearchableSelect
                     value={formData[f.name]}
                     required={f.required}
-                    onChange={e => setFormData({ ...formData, [f.name]: e.target.value })}
-                  >
-                    <option value="">Choose…</option>
-                    {(f.options || []).map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
+                    allowCustom={!!f.allowCustom}
+                    placeholder={f.placeholder || 'Type to search or choose…'}
+                    options={f.options || []}
+                    onChange={val => setFormData({ ...formData, [f.name]: val })}
+                  />
                 ) : f.type === 'checkbox' ? (
                   <span className="checkline">
                     <input
@@ -8575,6 +8997,7 @@ function ManagementView({
   property,
   subTab,
   setSubTab,
+  isAdmin = false,
   onAddEmployee,
   onEditEmployee,
   onViewEmployee,
@@ -8910,15 +9333,17 @@ function ManagementView({
                           >
                             <Edit3 size={13} />
                           </button>
-                          <button
-                            type="button"
-                            className="secondary small"
-                            onClick={() => onDeleteEmployee(emp.id)}
-                            title="Delete Employee Record"
-                            style={{ color: '#b91c1c' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              className="secondary small"
+                              onClick={() => onDeleteEmployee(emp.id)}
+                              title="Delete Employee Record (Admin only)"
+                              style={{ color: '#b91c1c' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -9067,15 +9492,17 @@ function ManagementView({
                         <small>{exp.recorded_by}</small>
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          className="secondary small"
-                          onClick={() => onDeleteExpense(exp.id)}
-                          title="Delete Expense Entry"
-                          style={{ color: '#b91c1c' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            className="secondary small"
+                            onClick={() => onDeleteExpense(exp.id)}
+                            title="Delete Expense Entry (Admin only)"
+                            style={{ color: '#b91c1c' }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -9304,15 +9731,17 @@ function ManagementView({
                               Mark Paid
                             </button>
                           )}
-                          <button
-                            type="button"
-                            className="secondary small"
-                            onClick={() => onDeleteUtility(util.id)}
-                            title="Delete Utility Bill"
-                            style={{ color: '#b91c1c' }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              className="secondary small"
+                              onClick={() => onDeleteUtility(util.id)}
+                              title="Delete Utility Bill (Admin only)"
+                              style={{ color: '#b91c1c' }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

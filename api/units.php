@@ -210,6 +210,29 @@ try {
         jsonResponse(['ok' => true, 'unit' => $updatedUnit]);
     }
 
+    // 5. DELETE /api/units/:id -> Delete apartment (Admin only)
+    if ($method === 'DELETE' && !empty($parts[0])) {
+        requireAdmin($db, $user);
+        $unitId = $parts[0];
+
+        $stmt = $db->prepare("SELECT * FROM units WHERE id = ?");
+        $stmt->execute([$unitId]);
+        $unit = $stmt->fetch();
+        if (!$unit) {
+            jsonError('Apartment not found', 404);
+        }
+        if (!empty($unit['occupied'])) {
+            jsonError('Cannot delete an occupied apartment. Check out the guest first.', 400);
+        }
+
+        $db->prepare("DELETE FROM maintenance_records WHERE unit_id = ?")->execute([$unitId]);
+        $db->prepare("DELETE FROM housekeeping_tasks WHERE unit_id = ?")->execute([$unitId]);
+        $db->prepare("DELETE FROM units WHERE id = ?")->execute([$unitId]);
+
+        logAudit($unit['property_id'] ?? 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'unit.deleted', $user['name'], ['unit_id' => $unitId, 'code' => $unit['code']]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported units action', 400);
 
 } catch (Exception $e) {

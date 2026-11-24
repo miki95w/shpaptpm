@@ -83,6 +83,45 @@ function requireAuth() {
     return $user;
 }
 
+// Get user's role name from DB
+function getUserRoleName($db, $user) {
+    if (empty($user['role_id'])) return '';
+    static $cache = [];
+    $rid = $user['role_id'];
+    if (isset($cache[$rid])) return $cache[$rid];
+    $stmt = $db->prepare("SELECT name FROM roles WHERE id = ? LIMIT 1");
+    $stmt->execute([$rid]);
+    $cache[$rid] = (string)($stmt->fetchColumn() ?: '');
+    return $cache[$rid];
+}
+
+function isAdminUser($db, $user) {
+    if (!$user) return false;
+    if (($user['role_id'] ?? '') === 'def28ddb-4a03-44a2-a540-cf49c8ffea1c') return true;
+    if (strtolower($user['email'] ?? '') === 'admin@gmail.com') return true;
+    $roleName = strtolower(getUserRoleName($db, $user));
+    return strpos($roleName, 'admin') !== false;
+}
+
+function isManagerOrAdmin($db, $user) {
+    if (isAdminUser($db, $user)) return true;
+    if (($user['role_id'] ?? '') === 'role-manager') return true;
+    $roleName = strtolower(getUserRoleName($db, $user));
+    return strpos($roleName, 'manager') !== false;
+}
+
+function requireAdmin($db, $user) {
+    if (!isAdminUser($db, $user)) {
+        jsonError('Forbidden: Only Administrators can delete records.', 403);
+    }
+}
+
+function requireAdminOrManager($db, $user) {
+    if (!isManagerOrAdmin($db, $user)) {
+        jsonError('Forbidden: Only Administrators or Managers can edit or delete inventory items.', 403);
+    }
+}
+
 // Read JSON input body
 function getJsonInput() {
     $raw = file_get_contents('php://input');

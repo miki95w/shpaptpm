@@ -352,6 +352,34 @@ try {
         jsonResponse(['ok' => true]);
     }
 
+    // DELETE /api/reservations/:id -> Delete reservation & stay account (Admin only)
+    if ($method === 'DELETE' && !empty($resId)) {
+        requireAdmin($db, $user);
+
+        $stmtAcc = $db->prepare("SELECT id FROM stay_accounts WHERE reservation_id = ?");
+        $stmtAcc->execute([$resId]);
+        $accIds = $stmtAcc->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($accIds as $accId) {
+            $db->prepare("DELETE FROM stay_account_entries WHERE account_id = ?")->execute([$accId]);
+        }
+        $db->prepare("DELETE FROM stay_accounts WHERE reservation_id = ?")->execute([$resId]);
+        try {
+            $db->prepare("DELETE FROM reservation_installments WHERE reservation_id = ?")->execute([$resId]);
+        } catch (Exception $e) {}
+        try {
+            $db->prepare("DELETE FROM inspections WHERE reservation_id = ?")->execute([$resId]);
+        } catch (Exception $e) {}
+        $db->prepare("DELETE FROM reservations WHERE id = ?")->execute([$resId]);
+
+        if ($reservation['status'] === 'checked_in' && !empty($reservation['unit_id'])) {
+            $db->prepare("UPDATE units SET occupied = 0, readiness = 'dirty' WHERE id = ?")->execute([$reservation['unit_id']]);
+        }
+
+        logAudit($reservation['property_id'], 'reservation.deleted', $user['name'], ['reference' => $reservation['reference'], 'guest_name' => $reservation['guest_name']]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported reservation action', 400);
 
 } catch (Exception $e) {

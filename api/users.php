@@ -49,6 +49,24 @@ try {
         jsonResponse(['ok' => true, 'id' => $userId], 201);
     }
 
+    // DELETE /api/users/:id -> Delete staff user (Admin only)
+    if ($method === 'DELETE') {
+        requireAdmin($db, $user);
+        $reqPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $reqPath = preg_replace('#^/api/?#', '', $reqPath);
+        $seg = array_values(array_filter(explode('/', trim($reqPath, '/'))));
+        $targetId = $seg[1] ?? '';
+        if (empty($targetId)) {
+            jsonError('User ID required', 400);
+        }
+        if ($targetId === $user['id']) {
+            jsonError('You cannot delete your own active account.', 400);
+        }
+        $db->prepare("DELETE FROM users WHERE id = ?")->execute([$targetId]);
+        logAudit('db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'staff.deleted', $user['name'], ['userId' => $targetId]);
+        jsonResponse(['ok' => true]);
+    }
+
     jsonError('Unsupported users action', 400);
 
 } catch (Exception $e) {
