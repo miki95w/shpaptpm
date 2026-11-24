@@ -448,15 +448,8 @@ INSERT IGNORE INTO `units` (`id`, `property_id`, `code`, `category`, `capacity`,
 ('u-solta-201', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'SOLTA-201', 'Two bedroom', 4, 5500.00, 'ready', 0),
 ('u-solta-301', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'SOLTA-301', 'Three bedroom', 6, 8000.00, 'ready', 0);
 
--- Inventory Items Catalog
+-- Inventory Items Catalog (Solta Hotel Apartment)
 INSERT IGNORE INTO `inventory_items` (`id`, `property_id`, `name`, `kind`, `unit`, `replacement_price`) VALUES
-('it-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Soap', 'consumable', 'bar', 0.00),
-('it-2', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Toilet paper', 'consumable', 'roll', 0.00),
-('it-3', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Bath towel', 'durable', 'piece', 900.00),
-('it-4', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Drinking glass', 'durable', 'piece', 250.00),
-('it-5', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Remote control', 'durable', 'piece', 1200.00),
-('it-6', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Television', 'durable', 'piece', 25000.00),
--- Solta Property Items
 ('it-s1', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Luxury Bath Soap (Botanical)', 'consumable', 'bar', 80.00),
 ('it-s2', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Premium Toilet Paper (2-Ply)', 'consumable', 'roll', 60.00),
 ('it-s3', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Luxury Bath Towel (White 700 GSM)', 'durable', 'piece', 1200.00),
@@ -482,7 +475,6 @@ INSERT IGNORE INTO `inventory_items` (`id`, `property_id`, `name`, `kind`, `unit
 
 -- Inventory Locations (Central Store & Cleaner Custody)
 INSERT IGNORE INTO `inventory_locations` (`id`, `property_id`, `name`, `kind`, `user_id`, `unit_id`) VALUES
-('loc-store-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'Central Store', 'store', NULL, NULL),
 ('loc-store-solta', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Central Store (Ground Floor)', 'store', NULL, NULL),
 ('loc-cart-solta', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Housekeeping Mobile Cart A', 'cleaner_custody', 'b8d4ef68-1cef-4acd-a960-5c17f1d66c5c', NULL),
 ('loc-unit-101', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'Apartment SOLTA-101', 'unit', NULL, 'u-solta-101'),
@@ -492,10 +484,6 @@ INSERT IGNORE INTO `inventory_locations` (`id`, `property_id`, `name`, `kind`, `
 
 -- Initial Stock Balances
 INSERT IGNORE INTO `inventory_stock` (`id`, `property_id`, `item_id`, `location_id`, `quantity`) VALUES
-('st-1', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'it-1', 'loc-store-1', 60.00),
-('st-2', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'it-2', 'loc-store-1', 70.00),
-('st-3', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'it-3', 'loc-store-1', 18.00),
-('st-4', '52b13c3e-b0d0-4742-b920-b11035779aa2', 'it-4', 'loc-store-1', 24.00),
 ('st-s1', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'it-s1', 'loc-store-solta', 140.00),
 ('st-s2', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'it-s2', 'loc-store-solta', 180.00),
 ('st-s3', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'it-s3', 'loc-store-solta', 45.00),
@@ -547,12 +535,6 @@ CREATE TABLE IF NOT EXISTS `maintenance_records` (
   INDEX (`property_id`),
   INDEX (`unit_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO `maintenance_records` (`id`, `property_id`, `unit_id`, `unit_code`, `issue`, `technician`, `duration_est`, `actual_duration`, `cost`, `status`, `start_date`, `resolved_date`, `notes`) VALUES
-('maint-solta-1', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'u-solta-102', 'SOLTA-102', 'Master bedroom AC compressor service & refrigerant top-up', 'Kebede HVAC Engineering', '6 hours', '5 hours 30 mins', 1800.00, 'resolved', '2026-11-05 09:00:00', '2026-11-05 14:30:00', 'Cooling coils cleaned, pressure tested at 120 PSI, 100% operational.'),
-('maint-solta-2', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'u-solta-201', 'SOLTA-201', 'Thermostatic shower mixer replacement & silicone resealing', 'Solta In-House Maintenance', '1 day', '1 day 2 hours', 3200.00, 'resolved', '2026-11-02 10:00:00', '2026-11-03 12:00:00', 'Replaced brass mixer unit, cured silicone for 24h, tested with zero leaks.'),
-('maint-solta-3', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'u-solta-301', 'SOLTA-301', 'Balcony sliding door roller track alignment & handle latch lock', 'Addis Glass & Aluminum Works', '4 hours', '4 hours', 1200.00, 'resolved', '2026-10-25 11:00:00', '2026-10-25 15:00:00', 'Heavy rollers replaced, track lubricated with teflon spray.'),
-('maint-solta-4', 'db0a0138-3ec4-4568-ba28-3ffb5bdfad9c', 'u-solta-101', 'SOLTA-101', 'Living room Smart TV wall bracket reinforcement & HDMI routing', 'Solta IT/AV Specialist', '3 hours', '2 hours 45 mins', 650.00, 'resolved', '2026-10-18 14:00:00', '2026-10-18 16:45:00', 'Mounted with M8 lag anchors, concealed cabling.');
 
 -- Audit Log Initial Event
 INSERT IGNORE INTO `audit_log` (`id`, `property_id`, `action`, `actor`, `details`) VALUES

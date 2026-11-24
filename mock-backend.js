@@ -2282,6 +2282,39 @@ function routeRequest(req, res, url, body) {
     return sendJson(res, { ok: true, notification: notif });
   }
 
+  // 26. System Maintenance & Demo Data Purge
+  if (path === 'system/purge-demo' && method === 'POST') {
+    const propertyId = body.propertyId || db.properties[0].id;
+    const resIds = new Set(db.reservations.filter(r => r.property_id === propertyId).map(r => r.id));
+    const accIds = new Set(db.stayAccounts.filter(a => a.property_id === propertyId).map(a => a.id));
+
+    db.reservationInstallments = db.reservationInstallments.filter(i => !resIds.has(i.reservation_id));
+    db.stayAccountEntries = db.stayAccountEntries.filter(e => !accIds.has(e.account_id));
+    db.stayAccounts = db.stayAccounts.filter(a => a.property_id !== propertyId);
+    db.reservations = db.reservations.filter(r => r.property_id !== propertyId);
+    db.expenses = db.expenses.filter(e => e.property_id !== propertyId);
+    db.utilities = db.utilities.filter(u => u.property_id !== propertyId);
+    db.tasks = db.tasks.filter(t => t.property_id !== propertyId);
+    db.notifications = db.notifications.filter(n => n.property_id !== propertyId);
+
+    // Reset units to unoccupied and ready
+    db.units.forEach(u => {
+      if (u.property_id === propertyId) {
+        u.occupied = false;
+        u.readiness = 'ready';
+      }
+    });
+
+    logAudit(propertyId, 'system.demo_purged', activeSessionUser.name, {
+      message: 'Clean workspace initialized for live production operations'
+    });
+
+    return sendJson(res, {
+      ok: true,
+      message: 'All test and demo data has been purged. Workspace is clean for live production.'
+    });
+  }
+
   // Fallback
   return sendJson(res, { message: `Not found: ${req.method} /api/${path}` }, 404);
 }

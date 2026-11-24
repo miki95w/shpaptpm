@@ -544,6 +544,9 @@ export default function App() {
       if (res.roles && res.roles.length > 0 && !selectedRoleForPerms) {
         setSelectedRoleForPerms(res.roles[0].id);
       }
+      if (propertyId) {
+        loadFinanceAnalytics(propertyId);
+      }
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
@@ -564,12 +567,12 @@ export default function App() {
     }
   }
 
-  // Load Finance Analytics when viewing analytics
+  // Load Finance Analytics whenever opening the Finance tab or switching properties
   useEffect(() => {
-    if (activeTab === 'Finance' && financeSubTab === 'analytics' && propertyId) {
+    if (activeTab === 'Finance' && propertyId) {
       loadFinanceAnalytics(propertyId);
     }
-  }, [activeTab, financeSubTab, propertyId]);
+  }, [activeTab, propertyId]);
 
   function showToast(msg) {
     setToast(msg);
@@ -1055,6 +1058,7 @@ export default function App() {
             <OverviewView
               data={data}
               property={currentProperty}
+              analyticsData={analyticsData}
               onNavigate={setActiveTab}
               onNewBooking={() => openNewBookingDialog()}
               onSelectUnit={unit => setSelectedUnit(unit)}
@@ -1210,6 +1214,7 @@ export default function App() {
               onTogglePaymentMethod={(id, active) => handleTogglePaymentMethod(id, active)}
               approverConfig={approverConfig || data?.approverConfig}
               onSaveApproverConfig={handleSaveApproverConfig}
+              onPurgeDemoData={handlePurgeDemoData}
               showToast={showToast}
             />
           )}
@@ -1242,7 +1247,7 @@ export default function App() {
 
       {selectedStayAccount && (
         <StayAccountModal
-          account={selectedStayAccount}
+          account={data?.accounts?.find(a => a.id === selectedStayAccount.id) || selectedStayAccount}
           currency={currentProperty.currency}
           reservation={(data?.reservations || []).find(r => r.id === selectedStayAccount.reservation_id)}
           paymentMethods={data?.paymentMethods || []}
@@ -1268,7 +1273,7 @@ export default function App() {
 
       {selectedUnit && (
         <RoomDetailsModal
-          unit={selectedUnit}
+          unit={data?.units?.find(u => u.id === selectedUnit.id) || selectedUnit}
           property={currentProperty}
           reservations={data?.reservations || []}
           tasks={data?.tasks || []}
@@ -1726,15 +1731,25 @@ export default function App() {
     if (!selectedRoleForPerms) return;
     try {
       await apiCall(`/roles/${selectedRoleForPerms}/permissions`, 'PATCH', { code, enabled });
-      // update local
-      setData(prev => ({
-        ...prev,
-        rolePermissions: prev.rolePermissions.map(rp =>
-          rp.role_id === selectedRoleForPerms && rp.permission_code === code
-            ? { ...rp, enabled }
-            : rp
-        )
-      }));
+      // update local safely even if permission entry didn't exist previously
+      setData(prev => {
+        if (!prev) return prev;
+        const perms = prev.rolePermissions || [];
+        const exists = perms.some(
+          rp => rp.role_id === selectedRoleForPerms && rp.permission_code === code
+        );
+        const updated = exists
+          ? perms.map(rp =>
+              rp.role_id === selectedRoleForPerms && rp.permission_code === code
+                ? { ...rp, enabled }
+                : rp
+            )
+          : [...perms, { role_id: selectedRoleForPerms, permission_code: code, enabled }];
+        return {
+          ...prev,
+          rolePermissions: updated
+        };
+      });
       showToast('Permission updated');
     } catch (err) {
       showToast(err.message, 'error');
@@ -1933,6 +1948,32 @@ export default function App() {
       showToast(err.message, 'error');
     }
   }
+
+  async function handlePurgeDemoData() {
+    if (!isAdmin) {
+      showToast('Only Administrators can purge test data', 'error');
+      return;
+    }
+    const confirmed = window.confirm(
+      '⚠️ WARNING: Are you sure you want to purge all test and demo data?\n\n' +
+      'This will permanently delete:\n' +
+      '• All test reservations and stay accounts\n' +
+      '• All recorded expenses and utility bills\n' +
+      '• All housekeeping tasks and maintenance records\n\n' +
+      'Apartments, inventory catalog, staff accounts, and property settings will NOT be deleted.\n\n' +
+      'Click OK to reset to a clean production workspace.'
+    );
+    if (!confirmed) return;
+
+    try {
+      await apiCall('/system/purge-demo', 'POST', { propertyId });
+      showToast('All test and demo data has been purged. Workspace is clean for live production.');
+      loadData();
+      if (propertyId) loadFinanceAnalytics(propertyId);
+    } catch (err) {
+      showToast(err.message || 'Failed to purge demo data', 'error');
+    }
+  }
 }
 
 // ==============================================================================
@@ -1943,6 +1984,7 @@ export default function App() {
 function OverviewView({
   data,
   property,
+  analyticsData,
   onNavigate,
   onNewBooking,
   onSelectUnit,
@@ -1986,7 +2028,7 @@ function OverviewView({
   // Pending housekeeping
   const pendingTasks = tasks.filter(t => t.status !== 'completed');
 
-  // Financial snapshot
+  // Financial snapshot: computed directly from accounts, falling back to preloaded analytics
   let totalPayments = 0;
   let heldDeposits = 0;
   let unpaidBalances = 0;
@@ -1998,6 +2040,14 @@ function OverviewView({
       if (e.kind === 'payment') totalPayments += Number(e.amount) || 0;
     });
   });
+
+  const displayRevenue = totalPayments > 0
+    ? totalPayments
+    : (Number(analyticsData?.totals?.payments) || 0);
+
+  const displayDeposits = heldDeposits > 0
+    ? heldDeposits
+    : (Number(analyticsData?.totals?.activeDeposits) || 0);
 
   // Dynamic greeting
   const curHour = new Date().getHours();
@@ -2153,10 +2203,10 @@ function OverviewView({
         <div className="dash-kpi-card dash-kpi-dark" onClick={() => onNavigate('Finance')} style={{ cursor: 'pointer' }}>
           <div className="dash-kpi-label">Realized revenue</div>
           <div className="dash-kpi-val" style={{ fontSize: 24 }}>
-            {formatMoney(totalPayments, property.currency)}
+            {formatMoney(displayRevenue, property.currency)}
           </div>
           <div className="dash-kpi-sub">
-            Deposits held: {formatMoney(heldDeposits, property.currency)}
+            Deposits held: {formatMoney(displayDeposits, property.currency)}
           </div>
         </div>
       </div>
@@ -3515,6 +3565,15 @@ function FinanceView({
   const rawTrends = analyticsData?.trend || analyticsData?.trends || [];
   const rawTxns = analyticsData?.transactions || analyticsData?.recentTransactions || [];
 
+  // Live direct calculation from active accounts in data (immediate & always consistent with accounts table)
+  const directBalances = useMemo(() => {
+    return (data?.accounts || []).reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
+  }, [data?.accounts]);
+
+  const directDeposits = useMemo(() => {
+    return (data?.accounts || []).reduce((sum, a) => sum + (Number(a.deposit) || 0), 0);
+  }, [data?.accounts]);
+
   // Filter transactions based on selected time filter
   const filteredTxns = useMemo(() => {
     return rawTxns.filter(t => {
@@ -3528,6 +3587,13 @@ function FinanceView({
 
   // Compute dynamic totals based on the filtered transactions
   const totals = useMemo(() => {
+    const liveBalances = rawTotals.outstandingBalances !== undefined
+      ? Number(rawTotals.outstandingBalances)
+      : directBalances;
+    const liveDeposits = rawTotals.activeDeposits !== undefined
+      ? Number(rawTotals.activeDeposits)
+      : directDeposits;
+
     if (timeFilter === 'all' && rawTotals.payments !== undefined) {
       return {
         payments: Number(rawTotals.payments) || 0,
@@ -3543,8 +3609,8 @@ function FinanceView({
           : ((Number(rawTotals.payments) || 0) - (Number(rawTotals.totalOutflow) || 0)),
         netCashflow: Number(rawTotals.netCashflow) || 0,
         operatingMargin: rawTotals.operatingMargin !== undefined ? Number(rawTotals.operatingMargin) : 0,
-        outstandingBalances: Number(rawTotals.outstandingBalances) || 0,
-        activeDeposits: Number(rawTotals.activeDeposits) || 0
+        outstandingBalances: liveBalances,
+        activeDeposits: liveDeposits
       };
     }
 
@@ -3575,10 +3641,10 @@ function FinanceView({
       netOperatingIncome: noi,
       netCashflow: netCash,
       operatingMargin: margin,
-      outstandingBalances: Number(rawTotals.outstandingBalances) || 0,
-      activeDeposits: Number(rawTotals.activeDeposits) || 0
+      outstandingBalances: liveBalances,
+      activeDeposits: liveDeposits
     };
-  }, [timeFilter, rawTotals, filteredTxns]);
+  }, [timeFilter, rawTotals, filteredTxns, directBalances, directDeposits]);
 
   // Dynamic methods breakdown from filtered txns
   const methods = useMemo(() => {
@@ -4406,7 +4472,22 @@ function FinanceView({
 // 5. Stay Accounts View
 function StayAccountsView({ accounts, property, onOpenStayAccount, onDeleteAccount, isAdmin = false }) {
   const [stayPage, setStayPage] = useState(1);
-  const accountList = accounts || [];
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const accountList = useMemo(() => {
+    const list = accounts || [];
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(a =>
+      (a.reference || '').toLowerCase().includes(q) ||
+      (a.guest_name || '').toLowerCase().includes(q)
+    );
+  }, [accounts, searchQuery]);
+
+  useEffect(() => {
+    setStayPage(1);
+  }, [searchQuery]);
+
   const pagedAccounts = accountList.slice((stayPage - 1) * 15, stayPage * 15);
 
   return (
@@ -4420,6 +4501,23 @@ function StayAccountsView({ accounts, property, onOpenStayAccount, onDeleteAccou
       </div>
 
       <section className="panel space">
+        <div className="panelheading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h2>Guest Stay Ledgers</h2>
+            <p className="muted" style={{ margin: 0, fontSize: 13 }}>Search active and settled guest accounts across all rooms.</p>
+          </div>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search reference or guest..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ padding: '8px 12px 8px 32px', fontSize: 12, width: 220, borderRadius: 6 }}
+            />
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          </div>
+        </div>
+
         <div className="tablewrap">
           <table>
             <thead>
@@ -4460,7 +4558,7 @@ function StayAccountsView({ accounts, property, onOpenStayAccount, onDeleteAccou
               {accountList.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', padding: '40px 20px', color: '#77837c' }}>
-                    No stay accounts found.
+                    No stay accounts found{searchQuery ? ' matching your search' : ''}.
                   </td>
                 </tr>
               )}
@@ -6586,6 +6684,7 @@ function AccessRolesView({
   onTogglePaymentMethod,
   approverConfig,
   onSaveApproverConfig,
+  onPurgeDemoData,
   showToast
 }) {
   const roles = data?.roles || [];
@@ -6942,6 +7041,34 @@ function AccessRolesView({
           </table>
         </div>
       </section>
+
+      {/* 4. Production System Controls (Admin Only) */}
+      {isAdmin && onPurgeDemoData && (
+        <section className="panel space" style={{ border: '1px solid #fecaca', background: '#fffaf0', marginTop: 24 }}>
+          <div className="panelheading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <h2 style={{ color: '#991b1b', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <AlertTriangle size={18} color="#dc2626" />
+                <span>Production Workspace Controls</span>
+              </h2>
+              <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+                Reset test bookings, temporary stay accounts, sample expenses, and maintenance records to start with a 100% clean live production hotel.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onPurgeDemoData}
+              style={{ background: '#dc2626', color: '#fff', border: 'none', padding: '9px 16px', fontWeight: 600, borderRadius: 6, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
+            >
+              <Trash2 size={15} />
+              <span>Purge Test &amp; Demo Data</span>
+            </button>
+          </div>
+          <div style={{ padding: '12px 16px', background: '#fff', border: '1px solid #fed7aa', borderRadius: 6, marginTop: 12, fontSize: 12, color: '#7c2d12', lineHeight: 1.6 }}>
+            <strong>What this resets:</strong> Permanently purges all test reservations, guest stay ledgers, recorded expenses, utility vouchers, and maintenance downtime records. Your property settings, apartments, inventory catalog, and staff credentials will remain completely safe.
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -6984,12 +7111,23 @@ function AuditHistoryView({ audit }) {
                     <span className="badge">{item.action}</span>
                   </td>
                   <td>{item.actor}</td>
-                  <td>{new Date(item.created_at).toLocaleString()}</td>
+                  <td>{formatDateTime(item.created_at)}</td>
                   <td>
                     <small className="muted">
-                      {Object.entries(item.details || {})
-                        .map(([k, v]) => `${k}: ${v}`)
-                        .join(' · ')}
+                      {(() => {
+                        let parsed = item.details;
+                        if (typeof parsed === 'string') {
+                          try {
+                            parsed = JSON.parse(parsed);
+                          } catch {
+                            return item.details || '—';
+                          }
+                        }
+                        if (!parsed || typeof parsed !== 'object') return String(parsed || '—');
+                        return Object.entries(parsed)
+                          .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+                          .join(' · ');
+                      })()}
                     </small>
                   </td>
                 </tr>
@@ -7764,8 +7902,6 @@ function parseUnitSpecs(rawSpecs, catKey) {
 }
 
 function RoomDetailsModal({ unit, property, reservations = [], tasks = [], onClose, onBookUnit, onScheduleCleaning, onOpenExtension, onUpdateUnit }) {
-  if (!unit) return null;
-
   const [currentUnit, setCurrentUnit] = useState(unit);
   const [isEditing, setIsEditing] = useState(false);
   const [editTab, setEditTab] = useState('general'); // 'general' | 'layout' | 'amenities' | 'furnishing'
@@ -7773,27 +7909,28 @@ function RoomDetailsModal({ unit, property, reservations = [], tasks = [], onClo
 
   // Sync with prop if parent updates
   useEffect(() => {
-    setCurrentUnit(unit);
+    if (unit) setCurrentUnit(unit);
   }, [unit]);
 
-  const catKey = (currentUnit.category || '').toLowerCase().includes('studio')
+  const activeUnit = currentUnit || unit || {};
+  const catKey = (activeUnit.category || '').toLowerCase().includes('studio')
     ? 'studio'
-    : (currentUnit.category || '').toLowerCase().includes('two')
+    : (activeUnit.category || '').toLowerCase().includes('two')
       ? 'two'
-      : (currentUnit.category || '').toLowerCase().includes('three')
+      : (activeUnit.category || '').toLowerCase().includes('three')
         ? 'three'
         : 'one';
-  const imgObj = APARTMENT_IMAGES[catKey];
+  const imgObj = APARTMENT_IMAGES[catKey] || APARTMENT_IMAGES.one;
 
   // Active specifications parsed from unit or defaults
-  const [activeSpecs, setActiveSpecs] = useState(() => parseUnitSpecs(currentUnit.specs, catKey));
+  const [activeSpecs, setActiveSpecs] = useState(() => parseUnitSpecs(activeUnit.specs, catKey));
 
   // Edit draft state
   const [editUnit, setEditUnit] = useState({
-    code: currentUnit.code || '',
-    category: currentUnit.category || '',
-    capacity: currentUnit.capacity || 2,
-    nightly_rate: currentUnit.nightly_rate || 0
+    code: activeUnit.code || '',
+    category: activeUnit.category || '',
+    capacity: activeUnit.capacity || 2,
+    nightly_rate: activeUnit.nightly_rate || 0
   });
   const [editSpecs, setEditSpecs] = useState(() => ({ ...activeSpecs }));
 
@@ -7801,6 +7938,8 @@ function RoomDetailsModal({ unit, property, reservations = [], tasks = [], onClo
   const [newAmenity, setNewAmenity] = useState('');
   const [newFurnItem, setNewFurnItem] = useState('');
   const [newFurnQty, setNewFurnQty] = useState(1);
+
+  if (!unit) return null;
 
   // When opening edit mode or changing unit, initialize draft
   const startEditing = (initialTab = 'general') => {
