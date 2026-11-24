@@ -626,6 +626,48 @@ export default function App() {
     timezone: 'Africa/Addis_Ababa'
   };
 
+  // Navigation Items (Management dropdown groups Management, Finance, Access & roles, Audit history)
+  const navItems = [
+    { name: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard.view' },
+    { name: 'Apartments', icon: Building2, perm: 'apartments.view' },
+    { name: 'Bookings', icon: Calendar, perm: 'reservations.view' },
+    { name: 'Stay Accounts', icon: Wallet, perm: 'finance.view' },
+    { name: 'Inventory', icon: Package, perm: 'inventory.view' },
+    { name: 'Housekeeping', icon: Sparkles, perm: 'housekeeping.view' },
+    {
+      name: 'Management',
+      icon: Briefcase,
+      perm: 'management.view',
+      isDropdown: true,
+      children: [
+        { name: 'Management', label: 'Operations & HR', desc: 'Staff, expenses & utilities', icon: Briefcase, perm: 'management.view' },
+        { name: 'Finance', label: 'Finance', desc: 'Revenue, folios & methods', icon: DollarSign, perm: 'finance.view' },
+        { name: 'Access & roles', label: 'Access & roles', desc: 'Permissions & approvals', icon: Shield, perm: 'roles.manage' },
+        { name: 'Audit history', label: 'Audit history', desc: 'System activity log', icon: History, perm: 'audit.view' }
+      ]
+    },
+    { name: 'Reports', icon: BarChart2, perm: 'reports.view' }
+  ];
+
+  const managementGroupTabs = ['Management', 'Finance', 'Access & roles', 'Audit history'];
+
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (mgmtDropdownRef.current && !mgmtDropdownRef.current.contains(e.target)) {
+        setMgmtDropdownOpen(false);
+      }
+    }
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') setMgmtDropdownOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   // --------------------------------------------------------------------------
   // Loading View
   // --------------------------------------------------------------------------
@@ -767,48 +809,6 @@ export default function App() {
       </main>
     );
   }
-
-  // Navigation Items (Management dropdown groups Management, Finance, Access & roles, Audit history)
-  const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, perm: 'dashboard.view' },
-    { name: 'Apartments', icon: Building2, perm: 'apartments.view' },
-    { name: 'Bookings', icon: Calendar, perm: 'reservations.view' },
-    { name: 'Stay Accounts', icon: Wallet, perm: 'finance.view' },
-    { name: 'Inventory', icon: Package, perm: 'inventory.view' },
-    { name: 'Housekeeping', icon: Sparkles, perm: 'housekeeping.view' },
-    {
-      name: 'Management',
-      icon: Briefcase,
-      perm: 'management.view',
-      isDropdown: true,
-      children: [
-        { name: 'Management', label: 'Operations & HR', desc: 'Staff, expenses & utilities', icon: Briefcase, perm: 'management.view' },
-        { name: 'Finance', label: 'Finance', desc: 'Revenue, folios & methods', icon: DollarSign, perm: 'finance.view' },
-        { name: 'Access & roles', label: 'Access & roles', desc: 'Permissions & approvals', icon: Shield, perm: 'roles.manage' },
-        { name: 'Audit history', label: 'Audit history', desc: 'System activity log', icon: History, perm: 'audit.view' }
-      ]
-    },
-    { name: 'Reports', icon: BarChart2, perm: 'reports.view' }
-  ];
-
-  const managementGroupTabs = ['Management', 'Finance', 'Access & roles', 'Audit history'];
-
-  useEffect(() => {
-    function handleOutsideClick(e) {
-      if (mgmtDropdownRef.current && !mgmtDropdownRef.current.contains(e.target)) {
-        setMgmtDropdownOpen(false);
-      }
-    }
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') setMgmtDropdownOpen(false);
-    }
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
 
   async function handleQuickMarkReady(unit) {
     try {
