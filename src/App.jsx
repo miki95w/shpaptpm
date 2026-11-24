@@ -458,6 +458,7 @@ function SearchableSelect({
 }
 
 const APARTMENT_IMAGES = {
+  studio: { src: '/images/solta/one-bedroom/onebed-5.webp', label: 'Studio' },
   one: { src: '/images/solta/one-bedroom/onebed-5.webp', label: 'One-bedroom' },
   two: { src: '/images/solta/two-bedroom/twobed-4.webp', label: 'Two-bedroom' },
   three: { src: '/images/solta/three-bedroom/threebed-2.webp', label: 'Three-bedroom' }
@@ -1454,6 +1455,7 @@ export default function App() {
           label: 'Category',
           type: 'select',
           options: [
+            { value: 'Studio', label: 'Studio' },
             { value: 'One bedroom', label: 'One bedroom' },
             { value: 'Two bedroom', label: 'Two bedroom' },
             { value: 'Three bedroom', label: 'Three bedroom' }
@@ -2774,11 +2776,13 @@ function ApartmentsView({
         <>
           <div className="unitgrid">
             {pagedUnits.map(unit => {
-              const catKey = (unit.category || '').toLowerCase().includes('two')
-                ? 'two'
-                : (unit.category || '').toLowerCase().includes('three')
-                  ? 'three'
-                  : 'one';
+              const catKey = (unit.category || '').toLowerCase().includes('studio')
+                ? 'studio'
+                : (unit.category || '').toLowerCase().includes('two')
+                  ? 'two'
+                  : (unit.category || '').toLowerCase().includes('three')
+                    ? 'three'
+                    : 'one';
               const imgObj = APARTMENT_IMAGES[catKey];
               const overstayInfo = getUnitOverstayInfo(unit, reservations);
               const activeRes = overstayInfo?.reservation || reservations.find(r => r.unit_id === unit.id && (r.status === 'checked_in' || r.status === 'confirmed'));
@@ -2961,11 +2965,13 @@ function ApartmentsView({
               </thead>
               <tbody>
                 {pagedUnits.map(unit => {
-                  const catKey = (unit.category || '').toLowerCase().includes('two')
-                    ? 'two'
-                    : (unit.category || '').toLowerCase().includes('three')
-                      ? 'three'
-                      : 'one';
+                  const catKey = (unit.category || '').toLowerCase().includes('studio')
+                    ? 'studio'
+                    : (unit.category || '').toLowerCase().includes('two')
+                      ? 'two'
+                      : (unit.category || '').toLowerCase().includes('three')
+                        ? 'three'
+                        : 'one';
                   const imgObj = APARTMENT_IMAGES[catKey];
                   const overstayInfo = getUnitOverstayInfo(unit, reservations);
                   const activeRes = overstayInfo?.reservation || reservations.find(r => r.unit_id === unit.id && (r.status === 'checked_in' || r.status === 'confirmed'));
@@ -7643,6 +7649,37 @@ function InspectionModal({ inspection, currency, onClose, onSaved }) {
 
 // Specifications Defaults for Solta Hotel Apartments
 const DEFAULT_SPECS = {
+  studio: {
+    type: 'Studio Serviced Apartment',
+    bedrooms: 'Studio Suite',
+    beds: '1 Queen Bed (160 × 200 cm)',
+    bathrooms: '1 Full Bathroom (Rain shower & vanity)',
+    bathroomsSubtitle: 'Rain shower & vanity',
+    area: '42 m²',
+    areaSqft: '452 sq.ft',
+    livingRoom: 'Integrated Studio Lounge with 43" 4K Smart TV',
+    kitchen: 'Compact Kitchenette with induction stove, mini-fridge & microwave',
+    balcony: 'Balcony with city view',
+    bedConfig: '1 Queen Size Bed with orthopedic mattress and luxury cotton linens',
+    capacityInfo: 'Up to 2 Adults',
+    features: [
+      'High-speed fiber Wi-Fi (up to 100 Mbps)',
+      'Individual climate control / air conditioning',
+      'Compact automatic washer utility setup',
+      'Blackout drapes & acoustic soundproof windows',
+      'Digital laptop safe box & RFID keycard lock',
+      '24/7 continuous generator power backup',
+      'Daily housekeeping & fresh linen service'
+    ],
+    furniture: [
+      { item: 'Queen bed with orthopedic mattress', qty: 1 },
+      { item: 'Comfortable armchair & side table', qty: 1 },
+      { item: 'Compact dining / work table with chairs', qty: 2 },
+      { item: 'Smart TV 43" 4K HDR', qty: 1 },
+      { item: 'Wardrobe with luggage rack', qty: 1 },
+      { item: 'Kitchenette essentials & dinnerware set', qty: 1 }
+    ]
+  },
   one: {
     type: '1-Bedroom Serviced Apartment',
     bedrooms: '1 Bedroom',
@@ -7784,11 +7821,13 @@ function RoomDetailsModal({ unit, property, reservations = [], tasks = [], onClo
     setCurrentUnit(unit);
   }, [unit]);
 
-  const catKey = (currentUnit.category || '').toLowerCase().includes('two')
-    ? 'two'
-    : (currentUnit.category || '').toLowerCase().includes('three')
-      ? 'three'
-      : 'one';
+  const catKey = (currentUnit.category || '').toLowerCase().includes('studio')
+    ? 'studio'
+    : (currentUnit.category || '').toLowerCase().includes('two')
+      ? 'two'
+      : (currentUnit.category || '').toLowerCase().includes('three')
+        ? 'three'
+        : 'one';
   const imgObj = APARTMENT_IMAGES[catKey];
 
   // Active specifications parsed from unit or defaults
