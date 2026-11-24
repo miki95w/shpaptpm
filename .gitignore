@@ -2,3 +2,5 @@ api/config.php
 php.ini
 cgi-bin/
 *.zip
+error_log
+*.log

@@ -89,6 +89,26 @@ switch ($resource) {
         require __DIR__ . '/units.php';
         break;
 
+    case 'expenses':
+        $_GET['path'] = implode('/', array_slice($parts, 1));
+        require __DIR__ . '/expenses.php';
+        break;
+
+    case 'utilities':
+        $_GET['path'] = implode('/', array_slice($parts, 1));
+        require __DIR__ . '/utilities.php';
+        break;
+
+    case 'employees':
+        $_GET['path'] = implode('/', array_slice($parts, 1));
+        require __DIR__ . '/employees.php';
+        break;
+
+    case 'system':
+        $_GET['path'] = implode('/', array_slice($parts, 1));
+        require __DIR__ . '/system.php';
+        break;
+
     default:
         if (!empty($resource) && file_exists(__DIR__ . '/' . $resource . '.php')) {
             require __DIR__ . '/' . $resource . '.php';
