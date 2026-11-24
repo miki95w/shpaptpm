@@ -30,16 +30,16 @@ if ($method === 'GET' || $action === 'me') {
     try {
         $db = getDB();
         // Fetch properties user has access to
-        $stmt = $db->prepare("SELECT p.id, p.name, p.currency, p.timezone, r.name as role 
-                              FROM properties p 
-                              LEFT JOIN roles r ON r.id = ?");
-        $stmt->execute([$user['role_id']]);
-        $properties = $stmt->fetchAll();
+        $stmt = $db->query("SELECT id, name, currency, timezone FROM properties");
+        $properties = $stmt ? $stmt->fetchAll() : [];
 
         // Also fetch user's explicit permissions
-        $permStmt = $db->prepare("SELECT permission_code FROM role_permissions WHERE role_id = ? AND enabled = 1");
-        $permStmt->execute([$user['role_id']]);
-        $permissions = $permStmt->fetchAll(PDO::FETCH_COLUMN);
+        $permissions = [];
+        if (!empty($user['role_id'])) {
+            $permStmt = $db->prepare("SELECT permission_code FROM role_permissions WHERE role_id = ? AND enabled = 1");
+            $permStmt->execute([$user['role_id']]);
+            $permissions = $permStmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+        }
 
         $roleName = getUserRoleName($db, $user);
 
@@ -54,7 +54,8 @@ if ($method === 'GET' || $action === 'me') {
             ],
             'properties' => $properties
         ]);
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        error_log("Failed to fetch user session: " . $e->getMessage());
         jsonError('Failed to fetch user session: ' . $e->getMessage(), 500);
     }
 }
