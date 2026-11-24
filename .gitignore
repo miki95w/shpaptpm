@@ -4,3 +4,4 @@ cgi-bin/
 *.zip
 error_log
 *.log
+sessions/

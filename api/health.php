@@ -31,6 +31,7 @@ if (!file_exists($configFile)) {
 
 $diagnostic['config_exists'] = true;
 require_once $configFile;
+require_once __DIR__ . '/db.php';
 
 // Check session
 try {
